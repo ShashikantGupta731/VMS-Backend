@@ -1,0 +1,68 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace backend.DTOs
+{
+    public class CreateVehicleDto
+    {
+        // Purchase Info
+        [Required]
+        public string PurchasedNewVehicle { get; set; } = string.Empty;
+        
+        // Office & Assignment
+        [Required]
+        public string OfficeName { get; set; } = string.Empty;
+        public string CurrentStatus { get; set; } = string.Empty;
+        public string VehicleAllocationType { get; set; } = string.Empty;
+        public string Designation { get; set; } = string.Empty;
+        public string OfficerName { get; set; } = string.Empty;
+        public string HrmsCode { get; set; } = string.Empty;
+        public string DriverType { get; set; } = string.Empty;
+        public string DriverName { get; set; } = string.Empty;
+        public string DriverContactNumber { get; set; } = string.Empty;
+        public string ContractorName { get; set; } = string.Empty;
+        public string ContractorContactNumber { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public string VehicleOwnerOffice { get; set; } = string.Empty;
+        
+        // Registration Details
+        public string RegistrationType { get; set; } = string.Empty;
+        [Required]
+        [RegularExpression(@"^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$", ErrorMessage = "Invalid registration number format")]
+        public string RegistrationNumber { get; set; } = string.Empty;
+        public string ManufactureYear { get; set; } = string.Empty;
+        public int? SeatingCapacity { get; set; }
+        
+        // Vehicle Details
+        [Required]
+        public string VehicleType { get; set; } = string.Empty;
+        [Required]
+        public string Manufacturer { get; set; } = string.Empty;
+        public string Model { get; set; } = string.Empty;
+        
+        // Uploads (file paths/URLs)
+        public string VehiclePhoto { get; set; } = string.Empty;
+        public string RegistrationCertificate { get; set; } = string.Empty;
+        
+        // Technical Details
+        [RegularExpression(@"^[A-Z0-9]{17}$", ErrorMessage = "Invalid chassis number format")]
+        public string ChassisNumber { get; set; } = string.Empty;
+        public decimal? VehicleCost { get; set; }
+        [Required]
+        public string FuelUsed { get; set; } = string.Empty;
+        
+        // Dates & Usage
+        public DateTime? PurchaseDate { get; set; }
+        public DateTime? FitnessUpto { get; set; }
+        public int? KmsCovered { get; set; }
+        
+        // Fuel & Maintenance
+        public decimal? FuelCostLast3Months { get; set; }
+        public decimal? FuelLitresLast3Months { get; set; }
+        public decimal? MaintenanceCostLast3Months { get; set; }
+        
+        // Tyre Details
+        public string IsTyreOriginal { get; set; } = string.Empty;
+        public DateTime? TyreChangedDate { get; set; }
+        public int? TyreChangedMeterReading { get; set; }
+    }
+}
