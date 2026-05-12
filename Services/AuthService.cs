@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
-using backend.Models;
+using backend.Models.Core;
 
 namespace backend.Services
 {
@@ -9,17 +9,21 @@ namespace backend.Services
         private readonly AppDbContext _context;
         private readonly JwtService _jwtService;
         private readonly OtpService _otpService;
+        private readonly IIfmsService _ifmsService;
 
-        public AuthService(AppDbContext context, JwtService jwtService, OtpService otpService)
+        public AuthService(AppDbContext context, JwtService jwtService, OtpService otpService, IIfmsService ifmsService)
         {
             _context = context;
             _jwtService = jwtService;
             _otpService = otpService;
+            _ifmsService = ifmsService;
         }
 
         // Login user
         public async Task<(bool Success, string? Token, object? User, string? Message)> LoginAsync(string username, string password)
         {
+            Console.WriteLine($"5. AuthService.LoginAsync: Started for User='{username}'");
+            
             // Find user by username
             var user = await _context.Users
                 .Include(u => u.UserRoles)
@@ -28,38 +32,73 @@ namespace backend.Services
 
             if (user == null)
             {
-                return (false, null, null, "Invalid username or password");
+                Console.WriteLine($"6. AuthService.LoginAsync: User '{username}' not found locally. Attempting IFMS Fallback...");
+                
+                var (ifmsSuccess, ifmsData, ifmsMessage) = await _ifmsService.LoginViaIfmsAsync(username, password);
+                
+                if (ifmsSuccess && ifmsData != null)
+                {
+                    Console.WriteLine($"6a. AuthService.LoginAsync: IFMS Login SUCCESS for '{username}'. Mapping to local user '{ifmsData.ddoCode}'...");
+                    
+                    // Legacy logic: Map IFMS user to local user via DDOCode, or fallback to username for admin users
+                    user = await _context.Users
+                        .Include(u => u.UserRoles)
+                        .ThenInclude(ur => ur.Role)
+                        .FirstOrDefaultAsync(u => u.Username == ifmsData.ddoCode || u.DDOCode == ifmsData.ddoCode || (ifmsData.ddoCode == null && u.Username == "admin"));
+
+                    if (user == null)
+                    {
+                        Console.WriteLine($"6b. AuthService.LoginAsync: ABORTED - IFMS User '{ifmsData.ddoCode}' not mapped in local database.");
+                        return (false, null, null, "Your IFMS account is valid, but not authorized for VMS. Please contact Administrator.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"6a. AuthService.LoginAsync: ABORTED - Local user not found and IFMS fallback failed: {ifmsMessage}");
+                    return (false, null, null, "Invalid username or password");
+                }
             }
+            else
+            {
+                // Local user exists, verify password
+                Console.WriteLine("7. AuthService.LoginAsync: User found locally. Calling PasswordHasher.VerifyPassword...");
+                if (!PasswordHasher.VerifyPassword(password, user.PasswordHash))
+                {
+                    Console.WriteLine("11. AuthService.LoginAsync: Password verification FAILED.");
+                    // Increment failed attempts
+                    user.FailedAttempts++;
+                    
+                    // Lock account after 5 failed attempts
+                    if (user.FailedAttempts >= 5)
+                    {
+                        user.LockUntil = DateTime.UtcNow.AddMinutes(15); // Lock for 15 minutes
+                        await _context.SaveChangesAsync();
+                        Console.WriteLine("11. AuthService.LoginAsync: LIMIT REACHED - Account locked for 15 mins.");
+                        return (false, null, null, "Account locked due to too many failed attempts. Try again in 15 minutes.");
+                    }
+
+                    await _context.SaveChangesAsync();
+                    return (false, null, null, "Invalid username or password");
+                }
+            }
+
+            Console.WriteLine($"7. AuthService.LoginAsync: User Authenticated. ID={user.UserId}, Enabled={user.Enabled}, LockedUntil={user.LockUntil}");
 
             // Check if account is locked
             if (user.LockUntil.HasValue && user.LockUntil > DateTime.UtcNow)
             {
+                Console.WriteLine($"8. AuthService.LoginAsync: ABORTED - Account locked until {user.LockUntil}");
                 return (false, null, null, $"Account locked. Try again after {user.LockUntil:yyyy-MM-dd HH:mm}");
             }
 
             // Check if account is active
-            if (!user.IsActive)
+            if (!user.Enabled)
             {
+                Console.WriteLine("9. AuthService.LoginAsync: ABORTED - Account is DEACTIVATED");
                 return (false, null, null, "Account is deactivated");
             }
 
-            // Verify password
-            if (!PasswordHasher.VerifyPassword(password, user.PasswordHash))
-            {
-                // Increment failed attempts
-                user.FailedAttempts++;
-                
-                // Lock account after 5 failed attempts
-                if (user.FailedAttempts >= 5)
-                {
-                    user.LockUntil = DateTime.UtcNow.AddMinutes(15); // Lock for 15 minutes
-                    await _context.SaveChangesAsync();
-                    return (false, null, null, "Account locked due to too many failed attempts. Try again in 15 minutes.");
-                }
-
-                await _context.SaveChangesAsync();
-                return (false, null, null, "Invalid username or password");
-            }
+            Console.WriteLine("11. AuthService.LoginAsync: Password verification SUCCESS.");
 
             // Reset failed attempts on successful login
             user.FailedAttempts = 0;
@@ -68,21 +107,24 @@ namespace backend.Services
 
             // Get user roles
             var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
+            Console.WriteLine($"12. AuthService.LoginAsync: Roles identified: {string.Join(",", roles)}");
 
             // Generate JWT token
+            Console.WriteLine("13. AuthService.LoginAsync: Calling JwtService.GenerateToken...");
             var token = _jwtService.GenerateToken(user, roles);
 
             // Return user info and token
             var userData = new
             {
-                id = user.Id,
+                id = user.UserId,
                 username = user.Username,
                 name = user.Name,
-                phone = user.Phone,
+                phone = user.PhoneNo,
                 roles,
                 isGuest = user.IsGuest
             };
 
+            Console.WriteLine("14. AuthService.LoginAsync: Login flow COMPLETE.");
             return (true, token, userData, null);
         }
 
@@ -100,7 +142,7 @@ namespace backend.Services
 
             // Check if phone already exists
             var existingPhone = await _context.Users
-                .FirstOrDefaultAsync(u => u.Phone == phone);
+                .FirstOrDefaultAsync(u => u.PhoneNo == phone);
             
             if (existingPhone != null)
             {
@@ -116,10 +158,10 @@ namespace backend.Services
                 Username = username,
                 PasswordHash = passwordHash,
                 Name = name,
-                Phone = phone,
-                IsActive = true,
+                PhoneNo = phone,
+                Enabled = true,
                 IsGuest = false,
-                CreatedAt = DateTime.UtcNow
+                CreatedDate = DateTime.UtcNow
             };
 
             _context.Users.Add(user);
@@ -127,13 +169,13 @@ namespace backend.Services
 
             // Assign default "User" role (you need to create this role in the database first)
             // For now, we'll skip role assignment if the role doesn't exist
-            var userRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "User");
+            var userRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "GUEST");
             if (userRole != null)
             {
                 var userRoleMapping = new UserRole
                 {
-                    UserId = user.Id,
-                    RoleId = userRole.Id
+                    UserId = user.UserId,
+                    RoleId = userRole.RoleId
                 };
                 _context.UserRoles.Add(userRoleMapping);
                 await _context.SaveChangesAsync();
@@ -151,8 +193,10 @@ namespace backend.Services
             // Store OTP with phone number and name
             _otpService.StoreOtp(phone, otp, name);
 
-            // TODO: Send OTP via SMS (for now, return in response for testing)
-            return (true, otp, "OTP sent successfully");
+            // TODO: Integrate real SMS Gateway service (using legacy template IDs)
+            Console.WriteLine($"GUEST OTP GENERATED for {phone}: {otp}"); 
+            
+            return (true, null, "OTP sent successfully"); // Don't return OTP in production
         }
 
         // Verify OTP and create/retrieve guest user
@@ -168,7 +212,7 @@ namespace backend.Services
 
             // Check if guest user already exists
             var existingUser = await _context.Users
-                .FirstOrDefaultAsync(u => u.Phone == phone && u.IsGuest);
+                .FirstOrDefaultAsync(u => u.PhoneNo == phone && u.IsGuest);
 
             User user;
 
@@ -184,10 +228,10 @@ namespace backend.Services
                     Username = $"guest_{phone}",
                     PasswordHash = "", // No password for guest
                     Name = name,
-                    Phone = phone,
+                    PhoneNo = phone,
                     IsGuest = true,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    Enabled = true,
+                    CreatedDate = DateTime.UtcNow
                 };
 
                 _context.Users.Add(user);
@@ -203,10 +247,10 @@ namespace backend.Services
 
             var userData = new
             {
-                id = user.Id,
+                id = user.UserId,
                 username = user.Username,
                 name = user.Name,
-                phone = user.Phone,
+                phone = user.PhoneNo,
                 roles,
                 isGuest = user.IsGuest
             };
@@ -226,7 +270,7 @@ namespace backend.Services
             }
 
             // Find user by phone
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Phone == phone && !u.IsGuest);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNo == phone && !u.IsGuest);
 
             if (user == null)
             {

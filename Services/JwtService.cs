@@ -2,7 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using backend.Models;
+using backend.Models.Core;
 
 namespace backend.Services
 {
@@ -22,20 +22,29 @@ namespace backend.Services
         // Generate JWT token for a user
         public string GenerateToken(User user, List<string> roles)
         {
+            Console.WriteLine($"[JWT SERVICE] Generating Token for User='{user.Username}', ID={user.UserId}");
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.GivenName, user.Name),
-                new Claim("phone", user.Phone),
-                new Claim("isGuest", user.IsGuest.ToString())
+                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                new Claim(ClaimTypes.Name, user.Username ?? ""),
+                new Claim(ClaimTypes.GivenName, user.Name ?? ""),
+                new Claim("phone", user.PhoneNo ?? ""),
+                new Claim("isGuest", user.IsGuest.ToString()),
+                
+                // --- NEW JURISDICTION CLAIMS ---
+                new Claim("departmentId", user.DeptId?.ToString() ?? ""),
+                new Claim("districtId", user.DistrictId?.ToString() ?? ""),
+                new Claim("ddoCode", user.DDOCode ?? "")
             };
+
 
             // Add roles as claims
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
+            
+            Console.WriteLine($"[JWT SERVICE] Added {claims.Count} claims to token payload.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -48,7 +57,9 @@ namespace backend.Services
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            string tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            Console.WriteLine("[JWT SERVICE] Token generation COMPLETE.");
+            return tokenString;
         }
 
         // Validate JWT token and return claims principal

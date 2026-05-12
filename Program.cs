@@ -6,11 +6,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using backend.Data;
 using backend.Services;
+using Scalar.AspNetCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 
 // Configure file upload settings
@@ -38,8 +41,15 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<ICaptchaService, CaptchaService>();
-builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IMasterService, MasterService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IIfmsService, IfmsService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -74,9 +84,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference(); 
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseCors("AllowAngularApp");
 app.UseStaticFiles(); // Serve static files
 app.UseAuthentication();

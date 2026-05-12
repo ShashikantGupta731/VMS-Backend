@@ -1,156 +1,102 @@
 using Microsoft.AspNetCore.Mvc;
-using backend.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using backend.Services;
+using backend.DTOs;
+using System.Security.Claims;
 
 namespace backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class VehiclesController : ControllerBase
     {
         private readonly IVehicleService _vehicleService;
-        private readonly IFileService _fileService;
 
-        public VehiclesController(IVehicleService vehicleService, IFileService fileService)
+        public VehiclesController(IVehicleService vehicleService)
         {
             _vehicleService = vehicleService;
-            _fileService = fileService;
         }
 
-        // POST /api/vehicles
-        [HttpPost]
-        public async Task<IActionResult> CreateVehicle([FromForm] IFormCollection formData)
-        {
-            // TODO: Get user ID from JWT token after authentication is implemented
-            // For now, using a default user ID (1)
-            int userId = 1;
-
-            // Handle file uploads
-            string vehiclePhotoPath = string.Empty;
-            string registrationCertificatePath = string.Empty;
-
-            var vehiclePhotoFile = formData.Files.GetFile("vehiclePhoto");
-            if (vehiclePhotoFile != null && vehiclePhotoFile.Length > 0)
-            {
-                vehiclePhotoPath = await _fileService.SaveFileAsync(vehiclePhotoFile, "vehicles") ?? string.Empty;
-            }
-
-            var registrationCertificateFile = formData.Files.GetFile("registrationCertificate");
-            if (registrationCertificateFile != null && registrationCertificateFile.Length > 0)
-            {
-                registrationCertificatePath = await _fileService.SaveFileAsync(registrationCertificateFile, "vehicles") ?? string.Empty;
-            }
-
-            // Map form data to DTO
-            var dto = new CreateVehicleDto
-            {
-                PurchasedNewVehicle = formData["purchasedNewVehicle"].ToString(),
-                OfficeName = formData["officeName"].ToString(),
-                CurrentStatus = formData["currentStatus"].ToString(),
-                VehicleAllocationType = formData["vehicleAllocationType"].ToString(),
-                Designation = formData["designation"].ToString(),
-                OfficerName = formData["officerName"].ToString(),
-                HrmsCode = formData["hrmsCode"].ToString(),
-                DriverType = formData["driverType"].ToString(),
-                DriverName = formData["driverName"].ToString(),
-                DriverContactNumber = formData["driverContactNumber"].ToString(),
-                ContractorName = formData["contractorName"].ToString(),
-                ContractorContactNumber = formData["contractorContactNumber"].ToString(),
-                Department = formData["department"].ToString(),
-                VehicleOwnerOffice = formData["vehicleOwnerOffice"].ToString(),
-                RegistrationType = formData["registrationType"].ToString(),
-                RegistrationNumber = formData["registrationNumber"].ToString(),
-                ManufactureYear = formData["manufactureYear"].ToString(),
-                SeatingCapacity = ParseNullableInt(formData["seatingCapacity"].ToString()),
-                VehicleType = formData["vehicleType"].ToString(),
-                Manufacturer = formData["manufacturer"].ToString(),
-                Model = formData["model"].ToString(),
-                VehiclePhoto = vehiclePhotoPath,
-                RegistrationCertificate = registrationCertificatePath,
-                ChassisNumber = formData["chassisNumber"].ToString(),
-                VehicleCost = ParseNullableDecimal(formData["vehicleCost"].ToString()),
-                FuelUsed = formData["fuelUsed"].ToString(),
-                PurchaseDate = ParseNullableDateTime(formData["purchaseDate"].ToString()),
-                FitnessUpto = ParseNullableDateTime(formData["fitnessUpto"].ToString()),
-                KmsCovered = ParseNullableInt(formData["kmsCovered"].ToString()),
-                FuelCostLast3Months = ParseNullableDecimal(formData["fuelCostLast3Months"].ToString()),
-                FuelLitresLast3Months = ParseNullableDecimal(formData["fuelLitresLast3Months"].ToString()),
-                MaintenanceCostLast3Months = ParseNullableDecimal(formData["maintenanceCostLast3Months"].ToString()),
-                IsTyreOriginal = formData["isTyreOriginal"].ToString(),
-                TyreChangedDate = ParseNullableDateTime(formData["tyreChangedDate"].ToString()),
-                TyreChangedMeterReading = ParseNullableInt(formData["tyreChangedMeterReading"].ToString())
-            };
-
-            var result = await _vehicleService.CreateVehicleAsync(dto, userId);
-            return CreatedAtAction(nameof(GetVehicleById), new { id = result.Id }, result);
-        }
-
-        // GET /api/vehicles
         [HttpGet]
-        public async Task<IActionResult> GetAllVehicles()
+        public async Task<ActionResult<List<VehicleResponseDto>>> GetAllVehicles([FromQuery] int? status)
         {
-            var vehicles = await _vehicleService.GetAllVehiclesAsync();
-            return Ok(vehicles);
+            return Ok(await _vehicleService.GetAllVehiclesAsync(status));
         }
 
-        // GET /api/vehicles/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetVehicleById(int id)
+        public async Task<ActionResult<VehicleResponseDto>> GetVehicleById(int id)
         {
             var vehicle = await _vehicleService.GetVehicleByIdAsync(id);
-            if (vehicle == null)
-                return NotFound(new { message = "Vehicle not found" });
-
+            if (vehicle == null) return NotFound();
             return Ok(vehicle);
         }
 
-        // PUT /api/vehicles/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateVehicle(int id, [FromBody] UpdateVehicleDto dto)
+        [HttpPost]
+        [Authorize(Roles = "DDO")]
+        public async Task<ActionResult<VehicleResponseDto>> CreateVehicle([FromForm] CreateVehicleDto dto)
         {
-            var result = await _vehicleService.UpdateVehicleAsync(id, dto);
-            if (result == null)
-                return NotFound(new { message = "Vehicle not found" });
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
 
-            return Ok(result);
+            var vehicle = await _vehicleService.CreateVehicleAsync(dto, userId);
+            return CreatedAtAction(nameof(GetVehicleById), new { id = vehicle.Id }, vehicle);
         }
 
-        // DELETE /api/vehicles/{id}
+        [HttpPut("{id}")]
+        [Authorize(Roles = "DDO")]
+        public async Task<ActionResult<VehicleResponseDto>> UpdateVehicle(int id, [FromForm] UpdateVehicleDto dto)
+        {
+            var vehicle = await _vehicleService.UpdateVehicleAsync(id, dto);
+            if (vehicle == null) return NotFound();
+            return Ok(vehicle);
+        }
+
         [HttpDelete("{id}")]
+        [Authorize(Roles = "ADMN")]
         public async Task<IActionResult> DeleteVehicle(int id)
         {
-            var success = await _vehicleService.DeleteVehicleAsync(id);
-            if (!success)
-                return NotFound(new { message = "Vehicle not found" });
-
-            return Ok(new { message = "Vehicle deleted successfully" });
+            var result = await _vehicleService.DeleteVehicleAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
         }
 
-        private int? ParseNullableInt(string value)
+        [HttpPost("{id}/verify")]
+        [Authorize(Roles = "ADMN")]
+        public async Task<IActionResult> VerifyVehicle(int id)
         {
-            if (string.IsNullOrEmpty(value))
-                return null;
-            if (int.TryParse(value, out int result))
-                return result;
-            return null;
+            var verifierId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+            var result = await _vehicleService.VerifyVehicleAsync(id, verifierId, "Verified by Admin", 1);
+            if (!result) return NotFound();
+            return Ok(new { message = "Vehicle verified successfully" });
         }
 
-        private decimal? ParseNullableDecimal(string value)
+        [HttpPost("{id}/reject")]
+        [Authorize(Roles = "ADMN")]
+        public async Task<IActionResult> RejectVehicle(int id, [FromBody] RejectVehicleDto dto)
         {
-            if (string.IsNullOrEmpty(value))
-                return null;
-            if (decimal.TryParse(value, out decimal result))
-                return result;
-            return null;
+            var verifierId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+            var result = await _vehicleService.VerifyVehicleAsync(id, verifierId, dto.Comments, 2);
+            if (!result) return NotFound();
+            return Ok(new { message = "Vehicle rejected with comments" });
         }
 
-        private DateTime? ParseNullableDateTime(string value)
+        [HttpPost("transfer")]
+        [Authorize(Roles = "DDO")]
+        public async Task<IActionResult> TransferVehicle([FromForm] TransferVehicleDto dto)
         {
-            if (string.IsNullOrEmpty(value))
-                return null;
-            if (DateTime.TryParse(value, out DateTime result))
-                return result;
-            return null;
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var result = await _vehicleService.TransferVehicleAsync(dto, userId);
+            return result ? Ok(new { message = "Vehicle transferred successfully" }) : BadRequest(new { message = "Transfer failed" });
+        }
+
+        [HttpPost("condemn")]
+        [Authorize(Roles = "DDO")]
+        public async Task<IActionResult> CondemnVehicle([FromForm] CondemnVehicleDto dto)
+        {
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var result = await _vehicleService.CondemnVehicleAsync(dto, userId);
+            return result ? Ok(new { message = "Vehicle condemned successfully" }) : BadRequest(new { message = "Condemn failed" });
         }
     }
 }

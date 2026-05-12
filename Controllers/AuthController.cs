@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
+using backend.DTOs.Auth;
 
 namespace backend.Controllers
 {
@@ -20,26 +21,35 @@ namespace backend.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
+            Console.WriteLine("\n--- BACKEND AUTH FLOW START ---");
+            Console.WriteLine($"1. AuthController.Login: Attempt for User='{request.Username}'");
+            Console.WriteLine($"2. AuthController.Login: Captcha Data: ID='{request.CaptchaId}', Input='{request.CaptchaInput}'");
+
             // Validate captcha
             if (string.IsNullOrEmpty(request.CaptchaId) || string.IsNullOrEmpty(request.CaptchaInput))
             {
+                Console.WriteLine("3. AuthController.Login: ABORTED - Captcha fields missing");
                 return BadRequest(new { message = "Captcha is required" });
             }
 
             var captchaValid = _captchaService.ValidateCaptcha(request.CaptchaId, request.CaptchaInput);
+            Console.WriteLine($"3. AuthController.Login: Captcha Validation result: {captchaValid}");
             
             if (!captchaValid)
             {
                 return BadRequest(new { message = "Invalid or expired captcha" });
             }
 
+            Console.WriteLine("4. AuthController.Login: Calling AuthService.LoginAsync...");
             var (success, token, user, message) = await _authService.LoginAsync(request.Username, request.Password);
+            Console.WriteLine($"11. AuthController.Login: AuthService result for {request.Username}: Success={success}, Message='{message}'");
 
             if (!success)
             {
                 return BadRequest(new { message });
             }
 
+            Console.WriteLine("12. AuthController.Login: SUCCESS. Returning Token and User info.");
             return Ok(new { token, user });
         }
 

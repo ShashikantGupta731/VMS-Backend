@@ -48,20 +48,24 @@ namespace backend.Services
             {
                 if (!_captchaStore.ContainsKey(captchaId))
                 {
+                    Console.WriteLine($"[CAPTCHA] FAIL: ID '{captchaId}' not found in store.");
                     return false;
                 }
 
                 var captchaData = _captchaStore[captchaId];
+                Console.WriteLine($"[CAPTCHA] Checking: Input='{userInput}', StoreValue='{captchaData.Text}', Expiry={captchaData.Expiry}");
 
                 // Check if expired
                 if (DateTime.UtcNow > captchaData.Expiry)
                 {
+                    Console.WriteLine("[CAPTCHA] FAIL: Captcha expired.");
                     _captchaStore.Remove(captchaId);
                     return false;
                 }
 
                 // Validate input (case-insensitive)
                 var isValid = captchaData.Text.Equals(userInput, StringComparison.OrdinalIgnoreCase);
+                Console.WriteLine($"[CAPTCHA] Match result: {isValid}");
 
                 // Remove captcha after validation (one-time use)
                 _captchaStore.Remove(captchaId);

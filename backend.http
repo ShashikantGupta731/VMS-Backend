@@ -1,6 +1,63 @@
-@backend_HostAddress = http://localhost:5261
+@baseUrl = http://localhost:5000/api
 
-GET {{backend_HostAddress}}/weatherforecast/
-Accept: application/json
+### GET all officers
+GET {{baseUrl}}/masters/officers
 
-###
+### GET specific officer
+GET {{baseUrl}}/masters/officers/1
+
+### CREATE new officer
+POST {{baseUrl}}/masters/officers
+Content-Type: application/json
+
+{
+    "firstName": "John",
+    "lastName": "Doe",
+    "hrmsCode": "12345",
+    "designationId": 1,
+    "officeId": 1,
+    "petrolFuelLimit": 100,
+    "dieselFuelLimit": 0,
+    "petrolMaintenanceLimit": 5000,
+    "dieselMaintenanceLimit": 0,
+    "remarks": "Test Officer"
+}
+
+### UPDATE officer
+PUT {{baseUrl}}/masters/officers/1
+Content-Type: application/json
+
+{
+    "firstName": "John",
+    "lastName": "Doe Updated",
+    "hrmsCode": "12345",
+    "designationId": 1,
+    "officeId": 1,
+    "petrolFuelLimit": 120,
+    "dieselFuelLimit": 0,
+    "petrolMaintenanceLimit": 6000,
+    "dieselMaintenanceLimit": 0,
+    "remarks": "Updated Test Officer"
+}
+
+### DELETE officer
+DELETE {{baseUrl}}/masters/officers/1
+
+### VERIFY HRMS Code
+GET {{baseUrl}}/masters/verify-hrms/21049844
+
+### PROJECTS
+
+### GET all projects
+GET {{baseUrl}}/masters/projects
+
+### CREATE new project
+POST {{baseUrl}}/masters/projects
+Content-Type: application/json
+
+{
+    "name": "VMS Modernization",
+    "departmentId": 1,
+    "petrolFuelLimit": 500,
+    "petrolMaintenanceLimit": 20000
+}
