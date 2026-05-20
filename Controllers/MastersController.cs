@@ -127,14 +127,20 @@ namespace backend.Controllers
             int? userDeptId = !string.IsNullOrEmpty(deptIdClaim) ? int.Parse(deptIdClaim) : null;
             int? userDistId = !string.IsNullOrEmpty(distIdClaim) ? int.Parse(distIdClaim) : null;
 
-            // Use departmentId if explicitly passed (for filtering), otherwise use user's dept
-            int? finalDeptId = departmentId ?? userDeptId;
+            // If a specific departmentId is explicitly requested by the client,
+            // return ALL offices associated with that department (bypassing user context filtering, 
+            // since this is needed for transferring vehicles to external offices).
+            if (departmentId.HasValue)
+            {
+                var allDeptOffices = await _masterService.GetAllOfficesAsync(departmentId.Value);
+                return Ok(allDeptOffices);
+            }
 
-            // Call service method with user context for role-based filtering
+            // Otherwise, fall back to role-based filtering for the logged-in user context
             var offices = await _masterService.GetOfficesByUserContextAsync(
                 userId, 
                 roleClaim, 
-                finalDeptId, 
+                userDeptId, 
                 userDistId
             );
 
@@ -199,8 +205,12 @@ namespace backend.Controllers
         }
 
         [HttpGet("designations")]
-        public async Task<ActionResult<List<DesignationResponseDto>>> GetDesignations([FromQuery] int? officeId)
+        public async Task<ActionResult<List<DesignationResponseDto>>> GetDesignations([FromQuery] int? officeId, [FromQuery] int? departmentId)
         {
+            if (departmentId.HasValue)
+            {
+                return Ok(await _masterService.GetDesignationsByDepartmentAsync(departmentId.Value));
+            }
             return Ok(await _masterService.GetAllDesignationsAsync(officeId));
         }
 
@@ -383,6 +393,12 @@ namespace backend.Controllers
             var result = await _masterService.DeleteDesignationAsync(id);
             if (!result) return NotFound();
             return NoContent();
+        }
+
+        [HttpGet("inventory")]
+        public async Task<ActionResult<List<InventoryDropdownDto>>> GetInventoryItems()
+        {
+            return Ok(await _masterService.GetAllInventoryItemsAsync());
         }
     }
 }

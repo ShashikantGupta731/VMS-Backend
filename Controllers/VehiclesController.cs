@@ -62,7 +62,7 @@ namespace backend.Controllers
         }
 
         [HttpPost("{id}/verify")]
-        [Authorize(Roles = "ADMN")]
+        [Authorize(Roles = "ADMN,DDO")]
         public async Task<IActionResult> VerifyVehicle(int id)
         {
             var verifierId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
@@ -72,7 +72,7 @@ namespace backend.Controllers
         }
 
         [HttpPost("{id}/reject")]
-        [Authorize(Roles = "ADMN")]
+        [Authorize(Roles = "ADMN,DDO")]
         public async Task<IActionResult> RejectVehicle(int id, [FromBody] RejectVehicleDto dto)
         {
             var verifierId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
@@ -97,6 +97,55 @@ namespace backend.Controllers
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var result = await _vehicleService.CondemnVehicleAsync(dto, userId);
             return result ? Ok(new { message = "Vehicle condemned successfully" }) : BadRequest(new { message = "Condemn failed" });
+        }
+
+        [HttpGet("{id}/fitness-certificates")]
+        public async Task<IActionResult> GetFitnessCertificates(int id)
+        {
+            var certificates = await _vehicleService.GetFitnessCertificatesAsync(id);
+            return Ok(certificates);
+        }
+
+        [HttpGet("{id}/fuel-bills")]
+        public async Task<IActionResult> GetFuelBills(int id)
+        {
+            var bills = await _vehicleService.GetFuelBillsAsync(id);
+            return Ok(bills);
+        }
+
+        [HttpGet("{id}/maintenance-bills")]
+        public async Task<IActionResult> GetMaintenanceBills(int id)
+        {
+            var bills = await _vehicleService.GetMaintenanceBillsAsync(id);
+            return Ok(bills);
+        }
+
+        [HttpGet("{id}/service-bills")]
+        public async Task<IActionResult> GetServiceBills(int id)
+        {
+            var bills = await _vehicleService.GetServiceBillsAsync(id);
+            return Ok(bills);
+        }
+
+        [HttpGet("{id}/battery-changes")]
+        public async Task<IActionResult> GetBatteryChanges(int id)
+        {
+            var bills = await _vehicleService.GetBatteryChangesAsync(id);
+            return Ok(bills);
+        }
+
+        [HttpGet("{id}/tyre-changes")]
+        public async Task<IActionResult> GetTyreChanges(int id)
+        {
+            var bills = await _vehicleService.GetTyreChangesAsync(id);
+            return Ok(bills);
+        }
+
+        [HttpGet("{id}/transfer-history")]
+        public async Task<IActionResult> GetTransferHistory(int id)
+        {
+            var history = await _vehicleService.GetTransferHistoryAsync(id);
+            return Ok(history);
         }
     }
 }

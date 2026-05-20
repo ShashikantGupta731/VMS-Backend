@@ -2,6 +2,8 @@ using backend.Data;
 using backend.DTOs.Billing;
 using backend.Models.Core;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using System.Data;
 
 namespace backend.Services
 {
@@ -44,6 +46,34 @@ namespace backend.Services
             }).ToListAsync();
         }
 
+        public async Task<FuelBillResponseDto?> GetFuelBillByIdAsync(int id, int userId)
+        {
+            var f = await _context.FuelBills
+                .Include(f => f.Vehicle)
+                .FirstOrDefaultAsync(f => f.FuelBillId == id && f.CreatedById == userId);
+
+            if (f == null) return null;
+
+            return new FuelBillResponseDto
+            {
+                FuelBillId = f.FuelBillId,
+                VehicleId = f.VehicleId,
+                VehicleNumber = f.Vehicle.VehicleNumber,
+                BillNumber = f.BillNumber,
+                BillDate = f.BillDate,
+                OdometerReading = f.OdometerReading,
+                FuelQuantity = f.FuelQuantity,
+                Amount = f.Amount,
+                Status = f.Status,
+                ClaimId = f.ClaimId,
+                SanctionAuthorityMobileNo = f.SanctionAuthorityMobileNo,
+                NocFile = f.NocFile,
+                NocIssueDate = f.NocIssueDate,
+                NocExpiryDate = f.NocExpiryDate,
+                SanctionPermissionFile = f.SanctionPermissionFile
+            };
+        }
+
         public async Task<FuelBillResponseDto> SaveFuelBillAsync(CreateFuelBillDto dto, int userId)
         {
             var validation = await GetOdometerValidationAsync(dto.VehicleId, dto.BillDate);
@@ -66,15 +96,18 @@ namespace backend.Services
 
             bill.VehicleId = dto.VehicleId;
             bill.BillNumber = dto.BillNumber;
-            bill.BillDate = dto.BillDate;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
             bill.OdometerReading = dto.OdometerReading;
             bill.FuelQuantity = dto.FuelQuantity;
             bill.Amount = dto.Amount;
             bill.NocFile = dto.NocFile;
             bill.NocIssueDate = dto.NocIssueDate.HasValue ? DateTime.SpecifyKind(dto.NocIssueDate.Value, DateTimeKind.Utc) : null;
             bill.NocExpiryDate = dto.NocExpiryDate.HasValue ? DateTime.SpecifyKind(dto.NocExpiryDate.Value, DateTimeKind.Utc) : null;
+            bill.SanctionPermissionFile = dto.SanctionPermissionFile;
+            bill.SanctionAuthorityMobileNo = dto.SanctionAuthorityMobileNo;
             bill.Status = BillStatus.Draft;
 
+            if (isNew) _context.FuelBills.Add(bill);
             await _context.SaveChangesAsync();
 
             return new FuelBillResponseDto
@@ -86,7 +119,8 @@ namespace backend.Services
                 OdometerReading = bill.OdometerReading,
                 FuelQuantity = bill.FuelQuantity,
                 Amount = bill.Amount,
-                Status = bill.Status
+                Status = bill.Status,
+                SanctionAuthorityMobileNo = bill.SanctionAuthorityMobileNo
             };
         }
 
@@ -108,28 +142,51 @@ namespace backend.Services
         public async Task<List<MaintenanceBillResponseDto>> GetMaintenanceBillsAsync(int userId, int? claimId = null)
         {
             var query = _context.MaintenanceBills
-                .Include(m => m.Vehicle)
-                .Where(m => m.CreatedById == userId);
+                .Include(b => b.Vehicle)
+                .Where(b => b.CreatedById == userId);
 
             if (claimId.HasValue)
-                query = query.Where(m => m.ClaimId == claimId);
+                query = query.Where(b => b.ClaimId == claimId);
             else
-                query = query.Where(m => m.Status == BillStatus.Draft);
+                query = query.Where(b => b.Status == BillStatus.Draft);
 
-            return await query.Select(m => new MaintenanceBillResponseDto
+            return await query.Select(b => new MaintenanceBillResponseDto
             {
-                MaintenanceBillId = m.MaintenanceBillId,
-                VehicleId = m.VehicleId,
-                VehicleNumber = m.Vehicle.VehicleNumber,
-                BillNumber = m.BillNumber,
-                BillDate = m.BillDate,
-                OdometerReading = m.OdometerReading,
-                Amount = m.Amount,
-                MaintenanceType = m.MaintenanceType,
-                Details = m.Details,
-                Status = m.Status,
-                ClaimId = m.ClaimId
+                MaintenanceBillId = b.MaintenanceBillId,
+                VehicleId = b.VehicleId,
+                VehicleNumber = b.Vehicle.VehicleNumber,
+                BillNumber = b.BillNumber,
+                BillDate = b.BillDate,
+                OdometerReading = b.OdometerReading,
+                Amount = b.Amount,
+                MaintenanceType = b.MaintenanceType,
+                Details = b.Details,
+                SanctionPermissionFile = b.SanctionPermissionFile,
+                Status = b.Status,
+                ClaimId = b.ClaimId
             }).ToListAsync();
+        }
+
+        public async Task<MaintenanceBillResponseDto?> GetMaintenanceBillByIdAsync(int id, int userId)
+        {
+            return await _context.MaintenanceBills
+                .Include(b => b.Vehicle)
+                .Where(b => b.MaintenanceBillId == id && b.CreatedById == userId)
+                .Select(b => new MaintenanceBillResponseDto
+                {
+                    MaintenanceBillId = b.MaintenanceBillId,
+                    VehicleId = b.VehicleId,
+                    VehicleNumber = b.Vehicle.VehicleNumber,
+                    BillNumber = b.BillNumber,
+                    BillDate = b.BillDate,
+                    OdometerReading = b.OdometerReading,
+                    Amount = b.Amount,
+                    MaintenanceType = b.MaintenanceType,
+                    Details = b.Details,
+                    SanctionPermissionFile = b.SanctionPermissionFile,
+                    Status = b.Status,
+                    ClaimId = b.ClaimId
+                }).FirstOrDefaultAsync();
         }
 
         public async Task<MaintenanceBillResponseDto> SaveMaintenanceBillAsync(CreateMaintenanceBillDto dto, int userId)
@@ -156,7 +213,7 @@ namespace backend.Services
 
             bill.VehicleId = dto.VehicleId;
             bill.BillNumber = dto.BillNumber;
-            bill.BillDate = dto.BillDate;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
             bill.OdometerReading = dto.OdometerReading;
             bill.Amount = dto.Amount;
             bill.MaintenanceType = dto.MaintenanceType;
@@ -208,7 +265,7 @@ namespace backend.Services
                 SubVoucherNo = dto.SubVoucherNo,
                 SubVoucherDescription = dto.SubVoucherDescription,
                 SanctionOrderNo = dto.SanctionOrderNo,
-                SanctionOrderDate = dto.SanctionOrderDate,
+                SanctionOrderDate = dto.SanctionOrderDate.HasValue ? DateTime.SpecifyKind(dto.SanctionOrderDate.Value, DateTimeKind.Utc) : null,
                 SanctionAuthority = dto.SanctionAuthority,
                 FirmName = dto.FirmName,
                 Tax = dto.Tax
@@ -256,6 +313,16 @@ namespace backend.Services
                     claim.TotalAmount += b.Amount;
                 }
             }
+            else if (dto.Type == BillType.Miscellaneous)
+            {
+                var bills = await _context.MiscellaneousBills.Where(b => dto.BillIds.Contains(b.MiscellaneousBillId) && b.Status == BillStatus.Draft).ToListAsync();
+                foreach (var b in bills)
+                {
+                    b.Status = BillStatus.Pending;
+                    b.Claim = claim;
+                    claim.TotalAmount += b.Amount;
+                }
+            }
 
             _context.BillClaims.Add(claim);
             await _context.SaveChangesAsync();
@@ -271,14 +338,29 @@ namespace backend.Services
             };
         }
 
-        public async Task<List<BillClaimResponseDto>> GetClaimsAsync(int userId, string role)
+        public async Task<List<BillClaimResponseDto>> GetClaimsAsync(int userId, string role, BillStatus? status = null, bool? forwardedToTreasury = null)
         {
             IQueryable<BillClaim> query = _context.BillClaims.Include(c => c.CreatedBy);
 
             if (role == "DDO")
+            {
                 query = query.Where(c => c.CreatedById == userId);
+                // If a specific status is requested (e.g. status=2 from IFMS page), apply it
+                if (status.HasValue)
+                    query = query.Where(c => c.Status == status.Value);
+            }
             else if (role == "ADMN" || role == "NDOF")
-                query = query.Where(c => c.Status == BillStatus.Pending);
+            {
+                if (status.HasValue)
+                    query = query.Where(c => c.Status == status.Value);
+                else
+                    query = query.Where(c => c.Status == BillStatus.Pending);
+            }
+
+            if (forwardedToTreasury.HasValue)
+            {
+                query = query.Where(c => c.ForwardedToTreasury == forwardedToTreasury.Value);
+            }
 
             return await query.Select(c => new BillClaimResponseDto
             {
@@ -289,7 +371,8 @@ namespace backend.Services
                 Type = c.Type,
                 CreatedBy = $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}",
                 CreatedAt = c.CreatedAt,
-                Comments = c.Comments
+                Comments = c.Comments,
+                ForwardedToTreasury = c.ForwardedToTreasury
             }).ToListAsync();
         }
 
@@ -385,6 +468,24 @@ namespace backend.Services
                         Status = b.Status
                     }).ToListAsync();
             }
+            else if (claim.Type == BillType.Miscellaneous)
+            {
+                dto.MiscellaneousBills = await _context.MiscellaneousBills
+                    .Include(b => b.InventoryItem)
+                    .Where(b => b.ClaimId == claim.BillClaimId)
+                    .Select(b => new MiscellaneousBillResponseDto
+                    {
+                        MiscellaneousBillId = b.MiscellaneousBillId,
+                        BillNumber = b.BillNumber,
+                        BillDate = b.BillDate,
+                        InventoryMasterId = b.InventoryItemId,
+                        InventoryName = b.InventoryItem.Name,
+                        ModelNumber = b.ModelNumber,
+                        Quantity = b.Quantity,
+                        Amount = b.Amount,
+                        Status = b.Status
+                    }).ToListAsync();
+            }
 
             return dto;
         }
@@ -412,8 +513,205 @@ namespace backend.Services
             var contractBills = await _context.ContractualBills.Where(b => b.ClaimId == claimId).ToListAsync();
             contractBills.ForEach(b => b.Status = BillStatus.Verified);
 
+            var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            miscBills.ForEach(b => b.Status = BillStatus.Verified);
+
             await _context.SaveChangesAsync();
+
+            // Sync to legacy IFMS integration tables if forwarded to treasury
+            await SyncClaimToLegacyIfmsAsync(claimId);
+
             return true;
+        }
+
+        private async Task SyncClaimToLegacyIfmsAsync(int claimId)
+        {
+            var claim = await _context.BillClaims.Include(c => c.CreatedBy).FirstOrDefaultAsync(c => c.BillClaimId == claimId);
+            if (claim == null || !claim.ForwardedToTreasury) return;
+
+            var conn = _context.Database.GetDbConnection();
+            bool wasClosed = conn.State == ConnectionState.Closed;
+            if (wasClosed) await conn.OpenAsync();
+
+            try
+            {
+                using (var cmd = conn.CreateCommand())
+                {
+                    // 1. Get next FuelMaintenanceIFMSId
+                    cmd.CommandText = "SELECT COALESCE(MAX(\"FuelMaintenanceIFMSId\"), 0) + 1 FROM \"tblFuelMaintenanceDetails_IFMS\"";
+                    int nextIfmsId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                    // 2. Insert into tblFuelMaintenanceDetails_IFMS
+                    cmd.CommandText = @"
+                        INSERT INTO ""tblFuelMaintenanceDetails_IFMS"" (
+                            ""FuelMaintenanceIFMSId"", ""FuelMaintenance"", ""ActionDate"", ""Amount"", 
+                            ""SubVoucherNo"", ""SubVoucherDesc"", ""SanctionOrderNo"", ""SanctionOrderDate"", 
+                            ""SanctionAuthority"", ""FwdToTreasury"", ""Status"", ""ClaimNo"", 
+                            ""DDOCode"", ""IFMSStatus"", ""incomeTaxAmount"", ""IsGrantInAidBill""
+                        ) VALUES (
+                            @ifmsId, @type, @actionDate, @amount, 
+                            @subVoucherNo, @subVoucherDesc, @sanctionOrderNo, @sanctionOrderDate, 
+                            @sanctionAuthority, true, 'Pending', @claimNo, 
+                            @ddoCode, 2, @tax, false
+                        )";
+
+                    cmd.Parameters.Clear();
+                    cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                    cmd.Parameters.Add(new NpgsqlParameter("type", (int)claim.Type));
+                    cmd.Parameters.Add(new NpgsqlParameter("actionDate", claim.CreatedAt));
+                    cmd.Parameters.Add(new NpgsqlParameter("amount", (int)claim.TotalAmount));
+                    cmd.Parameters.Add(new NpgsqlParameter("subVoucherNo", (object?)claim.SubVoucherNo ?? DBNull.Value));
+                    cmd.Parameters.Add(new NpgsqlParameter("subVoucherDesc", (object?)claim.SubVoucherDescription ?? DBNull.Value));
+                    cmd.Parameters.Add(new NpgsqlParameter("sanctionOrderNo", (object?)claim.SanctionOrderNo ?? DBNull.Value));
+                    cmd.Parameters.Add(new NpgsqlParameter("sanctionOrderDate", (object?)claim.SanctionOrderDate ?? DBNull.Value));
+                    cmd.Parameters.Add(new NpgsqlParameter("sanctionAuthority", (object?)claim.SanctionAuthority ?? DBNull.Value));
+                    cmd.Parameters.Add(new NpgsqlParameter("claimNo", claim.ClaimNumber));
+                    cmd.Parameters.Add(new NpgsqlParameter("ddoCode", claim.CreatedBy.DDOCode));
+                    cmd.Parameters.Add(new NpgsqlParameter("tax", (int)claim.Tax));
+
+                    await cmd.ExecuteNonQueryAsync();
+
+                    // 3. Insert child bills into legacy tables
+                    if (claim.Type == BillType.Fuel || claim.Type == BillType.Maintenance)
+                    {
+                        var fuelBills = await _context.FuelBills.Where(b => b.ClaimId == claimId).ToListAsync();
+                        foreach (var b in fuelBills)
+                        {
+                            cmd.CommandText = "SELECT COALESCE(MAX(\"FuelMaintenanceId\"), 0) + 1 FROM \"tblFuelMaintenanceDetails\"";
+                            int nextFuelId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                            cmd.CommandText = @"
+                                INSERT INTO ""tblFuelMaintenanceDetails"" (
+                                    ""FuelMaintenanceId"", ""FuelMaintenanceIFMSId"", ""VehicleInfoId"", 
+                                    ""Amount"", ""OdometerReading"", ""Status"", ""PDate"", ""BillNumber"", ""FuelMaintenance""
+                                ) VALUES (
+                                    @fuelId, @ifmsId, @vehicleId, 
+                                    @amount, @odometer, 200, @pDate, @billNo, @claimType
+                                )";
+                            cmd.Parameters.Clear();
+                            cmd.Parameters.Add(new NpgsqlParameter("fuelId", nextFuelId));
+                            cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                            cmd.Parameters.Add(new NpgsqlParameter("vehicleId", b.VehicleId));
+                            cmd.Parameters.Add(new NpgsqlParameter("amount", (int)b.Amount));
+                            cmd.Parameters.Add(new NpgsqlParameter("odometer", b.OdometerReading));
+                            cmd.Parameters.Add(new NpgsqlParameter("pDate", b.BillDate));
+                            cmd.Parameters.Add(new NpgsqlParameter("billNo", b.BillNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("claimType", (int)claim.Type));
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+
+                        var maintBills = await _context.MaintenanceBills.Where(b => b.ClaimId == claimId).ToListAsync();
+                        foreach (var b in maintBills)
+                        {
+                            cmd.CommandText = "SELECT COALESCE(MAX(\"FuelMaintenanceId\"), 0) + 1 FROM \"tblFuelMaintenanceDetails\"";
+                            int nextFuelId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                            cmd.CommandText = @"
+                                INSERT INTO ""tblFuelMaintenanceDetails"" (
+                                    ""FuelMaintenanceId"", ""FuelMaintenanceIFMSId"", ""VehicleInfoId"", 
+                                    ""Amount"", ""OdometerReading"", ""Status"", ""PDate"", ""BillNumber"", ""FuelMaintenance""
+                                ) VALUES (
+                                    @fuelId, @ifmsId, @vehicleId, 
+                                    @amount, @odometer, 200, @pDate, @billNo, @claimType
+                                )";
+                            cmd.Parameters.Clear();
+                            cmd.Parameters.Add(new NpgsqlParameter("fuelId", nextFuelId));
+                            cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                            cmd.Parameters.Add(new NpgsqlParameter("vehicleId", b.VehicleId));
+                            cmd.Parameters.Add(new NpgsqlParameter("amount", (int)b.Amount));
+                            cmd.Parameters.Add(new NpgsqlParameter("odometer", b.OdometerReading));
+                            cmd.Parameters.Add(new NpgsqlParameter("pDate", b.BillDate));
+                            cmd.Parameters.Add(new NpgsqlParameter("billNo", b.BillNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("claimType", (int)claim.Type));
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else if (claim.Type == BillType.Hired)
+                    {
+                        var hiredBills = await _context.HiredVehicleBills.Where(b => b.ClaimId == claimId).ToListAsync();
+                        foreach (var b in hiredBills)
+                        {
+                            cmd.CommandText = "SELECT COALESCE(MAX(\"HireVehicleDetailsId\"), 0) + 1 FROM \"tblHireVehicleDetails\"";
+                            int nextHiredId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                            cmd.CommandText = @"
+                                INSERT INTO ""tblHireVehicleDetails"" (
+                                    ""HireVehicleDetailsId"", ""FuelMaintenanceIFMSId"", ""VehicleNumber"", 
+                                    ""BillAmount"", ""BillNumber"", ""BillDate"", ""Status"", ""OfficeId"", ""NoofVehicles"", ""KMCovered""
+                                ) VALUES (
+                                    @hiredId, @ifmsId, @vehicleNo, 
+                                    @amount, @billNo, @pDate, 200, 1, @noofVehicles, @kmCovered
+                                )";
+                            cmd.Parameters.Clear();
+                            cmd.Parameters.Add(new NpgsqlParameter("hiredId", nextHiredId));
+                            cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                            cmd.Parameters.Add(new NpgsqlParameter("vehicleNo", b.VehicleNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("amount", (int)b.Amount));
+                            cmd.Parameters.Add(new NpgsqlParameter("billNo", b.BillNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("pDate", b.BillDate));
+                            cmd.Parameters.Add(new NpgsqlParameter("noofVehicles", b.NoOfVehicles));
+                            cmd.Parameters.Add(new NpgsqlParameter("kmCovered", (double)b.KmCovered));
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else if (claim.Type == BillType.Miscellaneous)
+                    {
+                        var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
+                        foreach (var b in miscBills)
+                        {
+                            cmd.CommandText = "SELECT COALESCE(MAX(\"MTStoreId\"), 0) + 1 FROM \"tblMTStore\"";
+                            int nextMiscId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                            cmd.CommandText = @"
+                                INSERT INTO ""tblMTStore"" (
+                                    ""MTStoreId"", ""FuelMaintenanceIFMSId"", ""BillNumber"", 
+                                    ""BillDate"", ""BillAmount"", ""Status"", ""Quantity""
+                                ) VALUES (
+                                    @miscId, @ifmsId, @billNo, 
+                                    @pDate, @amount, 200, @quantity
+                                )";
+                            cmd.Parameters.Clear();
+                            cmd.Parameters.Add(new NpgsqlParameter("miscId", nextMiscId));
+                            cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                            cmd.Parameters.Add(new NpgsqlParameter("billNo", b.BillNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("pDate", b.BillDate));
+                            cmd.Parameters.Add(new NpgsqlParameter("amount", (int)b.Amount));
+                            cmd.Parameters.Add(new NpgsqlParameter("quantity", (double)b.Quantity));
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else if (claim.Type == BillType.Contractual)
+                    {
+                        var contractBills = await _context.ContractualBills.Where(b => b.ClaimId == claimId).ToListAsync();
+                        foreach (var b in contractBills)
+                        {
+                            cmd.CommandText = "SELECT COALESCE(MAX(\"ContractualClaimId\"), 0) + 1 FROM \"tblContractualClaim\"";
+                            int nextContractId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+                            cmd.CommandText = @"
+                                INSERT INTO ""tblContractualClaim"" (
+                                    ""ContractualClaimId"", ""FuelMaintenanceIFMSId"", ""BillNumber"", 
+                                    ""BillDate"", ""BillAmount"", ""Status"", ""VehicleNumber""
+                                ) VALUES (
+                                    @contractId, @ifmsId, @billNo, 
+                                    @pDate, @amount, 200, @vehicleNo
+                                )";
+                            cmd.Parameters.Clear();
+                            cmd.Parameters.Add(new NpgsqlParameter("contractId", nextContractId));
+                            cmd.Parameters.Add(new NpgsqlParameter("ifmsId", nextIfmsId));
+                            cmd.Parameters.Add(new NpgsqlParameter("billNo", b.BillNumber));
+                            cmd.Parameters.Add(new NpgsqlParameter("pDate", b.BillDate));
+                            cmd.Parameters.Add(new NpgsqlParameter("amount", (int)b.Amount));
+                            cmd.Parameters.Add(new NpgsqlParameter("vehicleNo", b.VehicleNumber));
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (wasClosed) await conn.CloseAsync();
+            }
         }
 
         public async Task<bool> RejectClaimAsync(int claimId, int verifierId, string comments)
@@ -438,6 +736,9 @@ namespace backend.Services
 
             var contractBills = await _context.ContractualBills.Where(b => b.ClaimId == claimId).ToListAsync();
             foreach(var b in contractBills) { b.Status = BillStatus.Draft; b.ClaimId = null; }
+
+            var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            foreach(var b in miscBills) { b.Status = BillStatus.Draft; b.ClaimId = null; }
 
             await _context.SaveChangesAsync();
             return true;
@@ -543,24 +844,36 @@ namespace backend.Services
 
         public async Task<HiredVehicleBillResponseDto> SaveHiredVehicleBillAsync(CreateHiredVehicleBillDto dto, int userId)
         {
-            var bill = dto.HiredVehicleBillId.HasValue ? await _context.HiredVehicleBills.FindAsync(dto.HiredVehicleBillId.Value) : new HiredVehicleBill();
-            if (bill == null) throw new Exception("Bill not found");
+            bool isNew = !dto.HiredVehicleBillId.HasValue || dto.HiredVehicleBillId.Value <= 0;
+            HiredVehicleBill bill;
+            
+            if (!isNew)
+            {
+                bill = await _context.HiredVehicleBills.FindAsync(dto.HiredVehicleBillId!.Value) ?? throw new Exception("Bill not found");
+                if (bill.CreatedById != userId) throw new UnauthorizedAccessException();
+                if (bill.Status != BillStatus.Draft) throw new Exception("Only draft bills can be modified");
+            }
+            else
+            {
+                bill = new HiredVehicleBill { CreatedById = userId, CreatedAt = DateTime.UtcNow };
+            }
 
             bill.BillNumber = dto.BillNumber;
-            bill.BillDate = dto.BillDate;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
             bill.VehicleNumber = dto.VehicleNumber;
             bill.OfficeName = dto.OfficeName;
             bill.ContractorName = dto.ContractorName;
             bill.ContractorPhone = dto.ContractorPhone;
             bill.VehicleType = dto.VehicleType;
             bill.NoOfVehicles = dto.NoOfVehicles;
-            bill.HiredFrom = dto.HiredFrom;
-            bill.HiredTo = dto.HiredTo;
+            bill.HiredFrom = DateTime.SpecifyKind(dto.HiredFrom, DateTimeKind.Utc);
+            bill.HiredTo = DateTime.SpecifyKind(dto.HiredTo, DateTimeKind.Utc);
             bill.KmCovered = dto.KmCovered;
             bill.Amount = dto.Amount;
             bill.CreatedById = userId;
 
-            if (!dto.HiredVehicleBillId.HasValue) _context.HiredVehicleBills.Add(bill);
+            bill.Status = BillStatus.Draft;
+            if (isNew) _context.HiredVehicleBills.Add(bill);
             await _context.SaveChangesAsync();
 
             return new HiredVehicleBillResponseDto { HiredVehicleBillId = bill.HiredVehicleBillId };
@@ -608,19 +921,31 @@ namespace backend.Services
 
         public async Task<ContractualBillResponseDto> SaveContractualBillAsync(CreateContractualBillDto dto, int userId)
         {
-            var bill = dto.ContractualBillId.HasValue ? await _context.ContractualBills.FindAsync(dto.ContractualBillId.Value) : new ContractualBill();
-            if (bill == null) throw new Exception("Bill not found");
+            bool isNew = !dto.ContractualBillId.HasValue || dto.ContractualBillId.Value <= 0;
+            ContractualBill bill;
+
+            if (!isNew)
+            {
+                bill = await _context.ContractualBills.FindAsync(dto.ContractualBillId!.Value) ?? throw new Exception("Bill not found");
+                if (bill.CreatedById != userId) throw new UnauthorizedAccessException();
+                if (bill.Status != BillStatus.Draft) throw new Exception("Only draft bills can be modified");
+            }
+            else
+            {
+                bill = new ContractualBill { CreatedById = userId, CreatedAt = DateTime.UtcNow };
+            }
 
             bill.BillNumber = dto.BillNumber;
-            bill.BillDate = dto.BillDate;
-            bill.BillPeriodFrom = dto.BillPeriodFrom;
-            bill.BillPeriodTo = dto.BillPeriodTo;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
+            bill.BillPeriodFrom = DateTime.SpecifyKind(dto.BillPeriodFrom, DateTimeKind.Utc);
+            bill.BillPeriodTo = DateTime.SpecifyKind(dto.BillPeriodTo, DateTimeKind.Utc);
             bill.DdoCode = dto.DdoCode;
             bill.VehicleNumber = dto.VehicleNumber;
             bill.Amount = dto.Amount;
             bill.CreatedById = userId;
 
-            if (!dto.ContractualBillId.HasValue) _context.ContractualBills.Add(bill);
+            bill.Status = BillStatus.Draft;
+            if (isNew) _context.ContractualBills.Add(bill);
             await _context.SaveChangesAsync();
 
             return new ContractualBillResponseDto { ContractualBillId = bill.ContractualBillId };
@@ -636,6 +961,123 @@ namespace backend.Services
             return true;
         }
 
+        #endregion
+
+        #region Miscellaneous Bills
+
+        public async Task<List<MiscellaneousBillResponseDto>> GetMiscellaneousBillsAsync(int userId, int? claimId = null)
+        {
+            var query = _context.MiscellaneousBills
+                .Include(f => f.InventoryItem)
+                .Include(f => f.Claim)
+                .Where(f => f.CreatedById == userId);
+
+            if (claimId.HasValue)
+                query = query.Where(f => f.ClaimId == claimId);
+            else
+                query = query.Where(f => f.Status == BillStatus.Draft);
+
+            return await query.Select(f => new MiscellaneousBillResponseDto
+            {
+                MiscellaneousBillId = f.MiscellaneousBillId,
+                BillNumber = f.BillNumber,
+                BillDate = f.BillDate,
+                InventoryMasterId = f.InventoryItemId,
+                InventoryName = f.InventoryItem.Name,
+                ModelNumber = f.ModelNumber,
+                Quantity = f.Quantity,
+                Amount = f.Amount,
+                Status = f.Status,
+                ClaimId = f.ClaimId
+            }).ToListAsync();
+        }
+
+        public async Task<MiscellaneousBillResponseDto> SaveMiscellaneousBillAsync(CreateMiscellaneousBillDto dto, int userId)
+        {
+            bool isNew = !dto.MiscellaneousBillId.HasValue || dto.MiscellaneousBillId.Value <= 0;
+            MiscellaneousBill bill;
+
+            if (!isNew)
+            {
+                bill = await _context.MiscellaneousBills.FindAsync(dto.MiscellaneousBillId!.Value) ?? throw new Exception("Bill not found");
+                if (bill.CreatedById != userId) throw new UnauthorizedAccessException();
+                if (bill.Status != BillStatus.Draft) throw new Exception("Only draft bills can be modified");
+            }
+            else
+            {
+                bill = new MiscellaneousBill { CreatedById = userId, CreatedAt = DateTime.UtcNow };
+            }
+
+            bill.BillNumber = dto.BillNumber;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
+            bill.InventoryItemId = dto.InventoryMasterId;
+            bill.ModelNumber = dto.ModelNumber;
+            bill.Quantity = dto.Quantity;
+            bill.Amount = dto.Amount;
+            bill.Status = BillStatus.Draft;
+
+            if (isNew) _context.MiscellaneousBills.Add(bill);
+            await _context.SaveChangesAsync();
+
+            return new MiscellaneousBillResponseDto { MiscellaneousBillId = bill.MiscellaneousBillId };
+        }
+
+        public async Task<bool> DeleteMiscellaneousBillAsync(int id, int userId)
+        {
+            var bill = await _context.MiscellaneousBills.FirstOrDefaultAsync(b => b.MiscellaneousBillId == id && b.CreatedById == userId && b.Status == BillStatus.Draft);
+            if (bill == null) return false;
+
+            _context.MiscellaneousBills.Remove(bill);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        #endregion
+
+        #region Personal Usage
+        public async Task<bool> InsertPersonalUseDetailsAsync(PersonalUsagePayloadDto dto)
+        {
+            var plan = new PersonalUsagePlan
+            {
+                RecordId = dto.record_id,
+                ItemId = dto.item_id,
+                PlanId = dto.plan_id,
+                VehicleInfoId = dto.vehicle_info_id,
+                VehicleNo = dto.vehicle_no,
+                CreatedAt = DateTime.UtcNow,
+                UsageLogs = new List<PersonalUsageLog>()
+            };
+
+            if (!string.IsNullOrEmpty(dto.personal_use_details))
+            {
+                try
+                {
+                    var logs = System.Text.Json.JsonSerializer.Deserialize<List<PersonalUsageLogDto>>(dto.personal_use_details);
+                    if (logs != null)
+                    {
+                        foreach(var log in logs)
+                        {
+                            plan.UsageLogs.Add(new PersonalUsageLog
+                            {
+                                OfficerId = log.OfficerId,
+                                DateOfUse = DateTime.Parse(log.DateOfUse).ToUniversalTime(),
+                                OdometerFrom = log.OMFrom,
+                                OdometerTo = log.OMTo
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // If JSON is malformed, we still save the plan but without logs, or we can throw.
+                    throw new Exception("Invalid personal use details JSON format.", ex);
+                }
+            }
+
+            _context.PersonalUsagePlans.Add(plan);
+            await _context.SaveChangesAsync();
+            return true;
+        }
         #endregion
     }
 }

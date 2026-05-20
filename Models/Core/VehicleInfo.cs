@@ -99,7 +99,12 @@ namespace backend.Models.Core
         
         // --- 9. Requisition & Tracking ---
         public int? RequisitionDeptId { get; set; }
+        [ForeignKey("RequisitionDeptId")]
+        public virtual Department? RequisitionDepartment { get; set; }
+
         public int? RequisitionOfficeId { get; set; }
+        [ForeignKey("RequisitionOfficeId")]
+        public virtual Office? RequisitionOffice { get; set; }
         public string MaintenenceDuration { get; set; } = string.Empty;
         public DateTime? ReadingUptodate { get; set; }
         public string FinancialYearReading { get; set; } = string.Empty;
@@ -108,6 +113,10 @@ namespace backend.Models.Core
         // --- 10. NOC & Nodal Officer ---
         public string VehicleNOC { get; set; } = string.Empty;
         public DateTime? NOC_IssueDate { get; set; }
+        
+        // Navigation property for historical NOCs
+        public virtual ICollection<VehicleNOCDetail> VehicleNOCDetails { get; set; } = new List<VehicleNOCDetail>();
+        
         public string NodalOfficerName { get; set; } = string.Empty;
         public string NodalOfficerMobileNo { get; set; } = string.Empty;
         public string NodalOfficerUsername { get; set; } = string.Empty;

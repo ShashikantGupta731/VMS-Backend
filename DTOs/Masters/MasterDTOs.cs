@@ -3,6 +3,8 @@ namespace backend.DTOs.Masters
     // A generic DTO for simple dropdowns (VehicleType, etc.)
     public record DropdownResponseDto(int Id, string Name);
     
+    public record InventoryDropdownDto(int Id, string Name, bool IsModelRequired);
+    
     // Department-specific DTO with legacy-compatible field names
     public record DepartmentResponseDto(
         int DeptId, 

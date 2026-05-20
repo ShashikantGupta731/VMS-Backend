@@ -21,6 +21,7 @@ builder.Services.Configure<FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 5242880; // 5MB
 });
+builder.Services.Configure<backend.Configurations.SftpSettings>(builder.Configuration.GetSection("SftpSettings"));
 
 // Configure PostgreSQL DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -79,6 +80,21 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// --- SELF-HEALING DATABASE STARTUP CHECKS ---
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        context.Database.ExecuteSqlRaw("ALTER TABLE \"Vehicles\" ADD COLUMN IF NOT EXISTS \"ishaveyoupurchasednewvehicle\" boolean NULL;");
+        Console.WriteLine("[STARTUP] Verified and ensured 'ishaveyoupurchasednewvehicle' column exists in 'Vehicles' table.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[STARTUP] Warning during column self-healing check: {ex.Message}");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -20,6 +20,7 @@ namespace backend.Data
         public DbSet<MaintenanceBill> MaintenanceBills { get; set; }
         public DbSet<HiredVehicleBill> HiredVehicleBills { get; set; }
         public DbSet<ContractualBill> ContractualBills { get; set; }
+        public DbSet<MiscellaneousBill> MiscellaneousBills { get; set; }
 
         // --- Inventory Tables ---
         public DbSet<InventoryItem> InventoryItems { get; set; }
@@ -41,9 +42,12 @@ namespace backend.Data
         public DbSet<Officer> Officers { get; set; }
         public DbSet<Project> Projects { get; set; }
         public DbSet<VehicleCondemnation> VehicleCondemnations { get; set; }
+        public DbSet<VehicleNOCDetail> VehicleNOCDetails { get; set; }
         public DbSet<ContractualRequisite> ContractualRequisites { get; set; }
         public DbSet<FuelEntry> FuelEntries { get; set; }
         public DbSet<FuelMaintenance> FuelMaintenances { get; set; }
+        public DbSet<PersonalUsagePlan> PersonalUsagePlans { get; set; }
+        public DbSet<PersonalUsageLog> PersonalUsageLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

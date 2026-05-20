@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace backend.DTOs
@@ -20,5 +21,14 @@ namespace backend.DTOs
         public IFormFile? TransferOrderFile { get; set; }
         
         public string Remarks { get; set; } = string.Empty;
+
+        // Destination Allocation & Assignment Details (Legacy Parity)
+        public int? ToDeptId { get; set; }
+        public string? ToAllocationType { get; set; }
+        public int? ToDesignationId { get; set; }
+        public int? ToOfficerId { get; set; }
+        public string? ToHRMSCode { get; set; }
+        public string? ToOfficerName { get; set; }
     }
 }
+

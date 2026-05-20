@@ -34,7 +34,8 @@ namespace backend.Services
                 // --- NEW JURISDICTION CLAIMS ---
                 new Claim("departmentId", user.DeptId?.ToString() ?? ""),
                 new Claim("districtId", user.DistrictId?.ToString() ?? ""),
-                new Claim("ddoCode", user.DDOCode ?? "")
+                new Claim("ddoCode", user.DDOCode ?? ""),
+                new Claim("DDOCode", user.DDOCode ?? "")
             };
 
 

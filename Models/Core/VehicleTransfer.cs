@@ -20,6 +20,14 @@ namespace backend.Models.Core
         public string TransferOrderPath { get; set; } = string.Empty;
         public string Remarks { get; set; } = string.Empty;
         
+        // Historical Snapshots
+        public string FromAllocationType { get; set; } = string.Empty;
+        public string FromOfficerName { get; set; } = string.Empty;
+        public string FromDesignationName { get; set; } = string.Empty;
+        public string FromDdoCode { get; set; } = string.Empty;
+        public string ToDdoCode { get; set; } = string.Empty;
+        public DateTime? VerificationDate { get; set; }
+        
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     }

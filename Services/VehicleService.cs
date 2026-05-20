@@ -108,6 +108,9 @@ namespace backend.Services
                     .ThenInclude(o => o.Tehsil)
                 .Include(v => v.Designation)
                 .Include(v => v.Department)
+                .Include(v => v.Project)
+                .Include(v => v.RequisitionDepartment)
+                .Include(v => v.RequisitionOffice)
                 .FirstOrDefaultAsync(v => v.VehicleInfoId == id);
 
             return vehicle != null ? MapToResponseDto(vehicle) : null;
@@ -211,16 +214,27 @@ namespace backend.Services
                 VehicleId = vehicle.VehicleInfoId,
                 FromOfficeId = previousOfficeId,
                 ToOfficeId = targetOffice.OfficeId,
-                TransferDate = dto.TransferDate,
+                TransferDate = DateTime.SpecifyKind(dto.TransferDate, DateTimeKind.Utc),
                 TransferOrderNumber = dto.TransferOrderNumber,
                 TransferOrderPath = transferOrderPath,
                 Remarks = dto.Remarks,
+                FromAllocationType = vehicle.AllocationType,
+                FromOfficerName = vehicle.OfficerName,
+                FromDesignationName = vehicle.Designation?.DesignationName ?? string.Empty,
+                FromDdoCode = vehicle.DDOId,
+                ToDdoCode = string.Empty, // Fixed: targetOffice does not have DDOCode
                 CreatedBy = userId.ToString()
             };
 
-            // 2. Update Vehicle Current Office
+            // 2. Update Vehicle Current Office & Allocation Details (Legacy Parity)
             vehicle.OfficeId = dto.ToOfficeId;
-            vehicle.DDOId = string.Empty;
+            vehicle.DeptId = dto.ToDeptId;
+            vehicle.AllocationType = dto.ToAllocationType ?? string.Empty;
+            vehicle.DesignationId = dto.ToDesignationId;
+            vehicle.OfficerId = dto.ToOfficerId;
+            vehicle.HRMSCode = dto.ToHRMSCode ?? string.Empty;
+            vehicle.OfficerName = dto.ToOfficerName ?? string.Empty;
+            vehicle.DDOId = string.Empty; // Reset DDO code until next verification/assignment
             vehicle.UpdatedDate = DateTime.UtcNow;
 
             _context.VehicleTransfers.Add(transfer);
@@ -265,6 +279,179 @@ namespace backend.Services
             return true;
         }
 
+        public async Task<List<backend.DTOs.Vehicle.FitnessCertificateDto>> GetFitnessCertificatesAsync(int vehicleId)
+        {
+            var certificates = await _context.VehicleNOCDetails
+                .Where(n => n.VehicleInfoId == vehicleId && n.NOC_IssueDate != null)
+                .OrderByDescending(n => n.NOC_IssueDate)
+                .Select(n => new backend.DTOs.Vehicle.FitnessCertificateDto
+                {
+                    VehicleNOCDetailId = n.VehicleNOCDetailId,
+                    CertificateIssuedDate = n.NOC_IssueDate.HasValue ? n.NOC_IssueDate.Value.ToString("dd/MM/yyyy") : "",
+                    CertificateExpiryDate = n.NOC_ExpiryDate.HasValue ? n.NOC_ExpiryDate.Value.ToString("dd/MM/yyyy") : "",
+                    Certificate = n.VehicleNOC ?? ""
+                })
+                .ToListAsync();
+
+            return certificates;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetFuelBillsAsync(int vehicleId)
+        {
+            var bills = await _context.FuelMaintenances
+                .Where(f => f.VehicleInfoId == vehicleId && (f.Action == "Fuel" || f.MaintenanceType == "Fuel" || f.Action.Contains("Petrol") || f.Action.Contains("Diesel")))
+                .OrderByDescending(f => f.BillDate)
+                .Select(f => new backend.DTOs.Vehicle.BillRecordDto
+                {
+                    RecordId = f.FuelMaintenanceId.ToString(),
+                    ClaimNumber = f.ClaimNo ?? "N/A",
+                    SubVoucherNo = f.SubVoucherNo ?? "N/A",
+                    Date = f.BillDate.ToString("dd/MM/yyyy"),
+                    Type = f.Action ?? "Fuel",
+                    Amount = f.Amount,
+                    OdometerReading = f.OdometerReading,
+                    SanctionOrderNo = f.SanctionOrderNo ?? "N/A",
+                    SanctionOrderDate = f.SanctionOrderDate.HasValue ? f.SanctionOrderDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    SanctionAuthority = f.SanctionAuthority ?? "N/A",
+                    PermissionReceived = "Yes", // Placeholder for legacy mapping
+                    VmsEntryDate = f.CreatedDate.ToString("dd/MM/yyyy"), // Legacy used ActionDate which mapped to PDate/CreatedDate
+                    FuelConsumptionLitres = 0m, // Not strictly available in FuelMaintenance, requires join with FuelEntry, leaving 0 for now as stub
+                    PermissionNoc = "" // Placeholder as it is not in FuelMaintenance table
+                })
+                .ToListAsync();
+
+            return bills;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetMaintenanceBillsAsync(int vehicleId)
+        {
+            var bills = await _context.FuelMaintenances
+                .Where(f => f.VehicleInfoId == vehicleId && f.Action != "Fuel" && f.MaintenanceType != "Fuel" && !f.Action.Contains("Petrol") && !f.Action.Contains("Diesel"))
+                .OrderByDescending(f => f.BillDate)
+                .Select(f => new backend.DTOs.Vehicle.BillRecordDto
+                {
+                    RecordId = f.FuelMaintenanceId.ToString(),
+                    ClaimNumber = f.ClaimNo ?? "N/A",
+                    SubVoucherNo = f.SubVoucherNo ?? "N/A",
+                    Date = f.BillDate.ToString("dd/MM/yyyy"),
+                    Type = f.Action ?? "Maintenance",
+                    Amount = f.Amount,
+                    OdometerReading = f.OdometerReading,
+                    SanctionOrderNo = f.SanctionOrderNo ?? "N/A",
+                    SanctionOrderDate = f.SanctionOrderDate.HasValue ? f.SanctionOrderDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    SanctionAuthority = f.SanctionAuthority ?? "N/A",
+                    PermissionReceived = "Yes",
+                    VmsEntryDate = f.CreatedDate.ToString("dd/MM/yyyy"),
+                    PermissionNoc = ""
+                })
+                .ToListAsync();
+
+            return bills;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetServiceBillsAsync(int vehicleId)
+        {
+            var bills = await _context.FuelMaintenances
+                .Where(f => f.VehicleInfoId == vehicleId && f.Action == "Service")
+                .OrderByDescending(f => f.BillDate)
+                .Select(f => new backend.DTOs.Vehicle.BillRecordDto
+                {
+                    RecordId = f.FuelMaintenanceId.ToString(),
+                    ClaimNumber = f.ClaimNo ?? "N/A",
+                    SubVoucherNo = f.SubVoucherNo ?? "N/A",
+                    Date = f.BillDate.ToString("dd/MM/yyyy"),
+                    Type = f.Action ?? "Service",
+                    Amount = f.Amount,
+                    OdometerReading = f.OdometerReading,
+                    SanctionOrderNo = f.SanctionOrderNo ?? "N/A",
+                    SanctionOrderDate = f.SanctionOrderDate.HasValue ? f.SanctionOrderDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    SanctionAuthority = f.SanctionAuthority ?? "N/A",
+                    PermissionReceived = "Yes",
+                    VmsEntryDate = f.CreatedDate.ToString("dd/MM/yyyy"),
+                    PermissionNoc = ""
+                })
+                .ToListAsync();
+
+            return bills;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetBatteryChangesAsync(int vehicleId)
+        {
+            var bills = await _context.FuelMaintenances
+                .Where(f => f.VehicleInfoId == vehicleId && f.Action == "Battery Change")
+                .OrderByDescending(f => f.BillDate)
+                .Select(f => new backend.DTOs.Vehicle.BillRecordDto
+                {
+                    RecordId = f.FuelMaintenanceId.ToString(),
+                    ClaimNumber = f.ClaimNo ?? "N/A",
+                    SubVoucherNo = f.SubVoucherNo ?? "N/A",
+                    Date = f.BillDate.ToString("dd/MM/yyyy"),
+                    Type = f.Action ?? "Battery Change",
+                    Amount = f.Amount,
+                    OdometerReading = f.OdometerReading,
+                    SanctionOrderNo = f.SanctionOrderNo ?? "N/A",
+                    SanctionOrderDate = f.SanctionOrderDate.HasValue ? f.SanctionOrderDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    SanctionAuthority = f.SanctionAuthority ?? "N/A",
+                    PermissionReceived = "Yes",
+                    VmsEntryDate = f.CreatedDate.ToString("dd/MM/yyyy"),
+                    PermissionNoc = ""
+                })
+                .ToListAsync();
+
+            return bills;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetTyreChangesAsync(int vehicleId)
+        {
+            var bills = await _context.FuelMaintenances
+                .Where(f => f.VehicleInfoId == vehicleId && f.Action == "Tyre Change")
+                .OrderByDescending(f => f.BillDate)
+                .Select(f => new backend.DTOs.Vehicle.BillRecordDto
+                {
+                    RecordId = f.FuelMaintenanceId.ToString(),
+                    ClaimNumber = f.ClaimNo ?? "N/A",
+                    SubVoucherNo = f.SubVoucherNo ?? "N/A",
+                    Date = f.BillDate.ToString("dd/MM/yyyy"),
+                    Type = f.Action ?? "Tyre Change",
+                    Amount = f.Amount,
+                    OdometerReading = f.OdometerReading,
+                    SanctionOrderNo = f.SanctionOrderNo ?? "N/A",
+                    SanctionOrderDate = f.SanctionOrderDate.HasValue ? f.SanctionOrderDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    SanctionAuthority = f.SanctionAuthority ?? "N/A",
+                    PermissionReceived = "Yes",
+                    VmsEntryDate = f.CreatedDate.ToString("dd/MM/yyyy"),
+                    PermissionNoc = ""
+                })
+                .ToListAsync();
+
+            return bills;
+        }
+
+        public async Task<List<backend.DTOs.Vehicle.TransferHistoryDto>> GetTransferHistoryAsync(int vehicleId)
+        {
+            var history = await _context.VehicleTransfers
+                .Where(t => t.VehicleId == vehicleId)
+                .Include(t => t.FromOffice)
+                    .ThenInclude(o => o.Department)
+                .OrderByDescending(t => t.TransferDate)
+                .Select(t => new backend.DTOs.Vehicle.TransferHistoryDto
+                {
+                    VehicleTransferredOn = t.TransferDate.ToString("dd/MM/yyyy"),
+                    VerifiedOn = t.VerificationDate.HasValue ? t.VerificationDate.Value.ToString("dd/MM/yyyy") : "N/A",
+                    PreviousOffice = t.FromOffice.OfficeName,
+                    PreviousDepartment = t.FromOffice.Department != null ? t.FromOffice.Department.DeptName : "N/A",
+                    AllocationType = t.FromAllocationType,
+                    OfficerName = t.FromOfficerName,
+                    OfficerDesignation = t.FromDesignationName,
+                    Remarks = t.Remarks,
+                    PreviousDdo = t.FromDdoCode,
+                    NewDdo = t.ToDdoCode
+                })
+                .ToListAsync();
+
+            return history;
+        }
+
         public async Task<List<VehicleResponseDto>> GetVehiclesByDdoAsync(string ddoCode)
         {
             var vehicles = await _context.Vehicles
@@ -272,7 +459,7 @@ namespace backend.Services
                 .Include(v => v.Model)
                 .Include(v => v.VehicleType)
                 .Include(v => v.Office)
-                .Where(v => v.IsActive && v.DDOId == ddoCode)
+                .Where(v => v.IsActive && v.DDOId == ddoCode && v.verificationstatus == 1)
                 .ToListAsync();
 
             return vehicles.Select(MapToResponseDto).ToList();
@@ -294,16 +481,19 @@ namespace backend.Services
                 FdApproval = v.FdApprovalPath,
                 FleetStrengthLetter = v.FleetStrengthLetterPath,
                 OfficeName = v.Office?.OfficeName ?? string.Empty,
+                OfficeAddress = v.Office?.OfficeAddress ?? string.Empty,
                 Designation = v.Designation?.DesignationName ?? string.Empty,
                 Department = v.Department?.DeptName ?? string.Empty,
                 District = v.Office?.District?.DistrictName ?? string.Empty,
                 Tehsil = v.Office?.Tehsil?.TehsilName ?? string.Empty,
                 OfficerName = v.OfficerName,
+                HrmsCode = v.HRMSCode,
                 CurrentStatus = v.CurrentStatus,
                 VerificationStatus = v.verificationstatus,
                 VerificationComments = v.Comments,
                 VerificationDate = v.VerificationDate,
                 VehicleAllocationType = v.AllocationType,
+                ProjectName = v.Project?.ProjectName ?? string.Empty,
                 VehicleCost = v.VehicleCost != null ? Convert.ToDecimal(v.VehicleCost) : null,
                 PurchaseDate = v.VehiclePurchaseDate,
                 ManufactureYear = v.ManufactureYear.ToString(),
@@ -314,6 +504,26 @@ namespace backend.Services
                 DriverContactNumber = v.DriverContactNo,
                 ContractorName = v.ContractorName,
                 ContractorContactNumber = v.ContractorContactNo,
+                RequisitionDeptName = v.RequisitionDepartment?.DeptName ?? string.Empty,
+                RequisitionOfficeName = v.RequisitionOffice?.OfficeName ?? string.Empty,
+                
+                // Nodal Officer
+                NodalOfficerName = v.NodalOfficerName,
+                NodalOfficerEmail = v.NodalOfficerEmail,
+                NodalOfficerMobileNo = v.NodalOfficerMobileNo,
+                TreasuryType = v.TreasuryType,
+                PDate = v.PDate,
+                ReadingUptodate = v.ReadingUptodate,
+                FinancialYearReading = v.FinancialYearReading,
+                KmsCovered = v.KM_30062017,
+                FuelCostLast3Months = v.FuelConsumptionCost != null ? Convert.ToDecimal(v.FuelConsumptionCost) : null,
+                FuelLitresLast3Months = v.FuelConsumptionLitres != null ? Convert.ToDecimal(v.FuelConsumptionLitres) : null,
+                MaintenanceCostLast3Months = v.LastThreeYearsMaintenanceCost != null ? Convert.ToDecimal(v.LastThreeYearsMaintenanceCost) : null,
+                MaintenenceDuration = v.MaintenenceDuration,
+                IsTyreOriginal = v.IsTyreOriginal == true ? "Yes" : "No",
+                TyreChangedDate = v.LastTyreChangedDate,
+                TyreChangedMeterReading = v.LastTyreChangedKM,
+                FitnessUpto = v.FitnessUpto,
                 CreatedAt = v.CreatedDate,
                 UpdatedAt = v.UpdatedDate,
                 CreatedByUserId = int.TryParse(v.CreatedBy, out int uid) ? uid : 0

@@ -13,6 +13,8 @@ namespace backend.Models.Core
         
         public string? Description { get; set; }
         
+        public bool IsModelRequired { get; set; } = false;
+
         public bool IsActive { get; set; } = true;
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

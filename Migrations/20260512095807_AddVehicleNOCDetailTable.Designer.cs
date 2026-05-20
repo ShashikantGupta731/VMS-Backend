@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using backend.Data;
@@ -11,9 +12,11 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260512095807_AddVehicleNOCDetailTable")]
+    partial class AddVehicleNOCDetailTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -274,9 +277,6 @@ namespace backend.Migrations
 
                     b.Property<int>("OdometerReading")
                         .HasColumnType("integer");
-
-                    b.Property<string>("SanctionAuthorityMobileNo")
-                        .HasColumnType("text");
 
                     b.Property<string>("SanctionPermissionFile")
                         .HasColumnType("text");
@@ -850,9 +850,6 @@ namespace backend.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsModelRequired")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -920,122 +917,6 @@ namespace backend.Migrations
                     b.HasIndex("VehicleId");
 
                     b.ToTable("MaintenanceBills");
-                });
-
-            modelBuilder.Entity("backend.Models.Core.MiscellaneousBill", b =>
-                {
-                    b.Property<int>("MiscellaneousBillId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MiscellaneousBillId"));
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric");
-
-                    b.Property<DateTime>("BillDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("BillNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("ClaimId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("CreatedById")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("InventoryItemId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ModelNumber")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.HasKey("MiscellaneousBillId");
-
-                    b.HasIndex("ClaimId");
-
-                    b.HasIndex("CreatedById");
-
-                    b.HasIndex("InventoryItemId");
-
-                    b.ToTable("MiscellaneousBills");
-                });
-
-            modelBuilder.Entity("backend.Models.Core.PersonalUsageLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("DateOfUse")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("OdometerFrom")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal>("OdometerTo")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("OfficerId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("PersonalUsagePlanId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PersonalUsagePlanId");
-
-                    b.ToTable("PersonalUsageLogs");
-                });
-
-            modelBuilder.Entity("backend.Models.Core.PersonalUsagePlan", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ItemId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("PlanId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("RecordId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("VehicleInfoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("VehicleNo")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PersonalUsagePlans");
                 });
 
             modelBuilder.Entity("backend.Models.Core.Role", b =>
@@ -1689,30 +1570,10 @@ namespace backend.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("FromAllocationType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FromDdoCode")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FromDesignationName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int>("FromOfficeId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("FromOfficerName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Remarks")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ToDdoCode")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -1732,9 +1593,6 @@ namespace backend.Migrations
 
                     b.Property<int>("VehicleId")
                         .HasColumnType("integer");
-
-                    b.Property<DateTime?>("VerificationDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("VehicleTransferId");
 
@@ -2519,42 +2377,6 @@ namespace backend.Migrations
                     b.Navigation("Vehicle");
                 });
 
-            modelBuilder.Entity("backend.Models.Core.MiscellaneousBill", b =>
-                {
-                    b.HasOne("backend.Models.Core.BillClaim", "Claim")
-                        .WithMany("MiscellaneousBills")
-                        .HasForeignKey("ClaimId");
-
-                    b.HasOne("backend.Models.Core.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.Core.InventoryItem", "InventoryItem")
-                        .WithMany()
-                        .HasForeignKey("InventoryItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Claim");
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("InventoryItem");
-                });
-
-            modelBuilder.Entity("backend.Models.Core.PersonalUsageLog", b =>
-                {
-                    b.HasOne("backend.Models.Core.PersonalUsagePlan", "PersonalUsagePlan")
-                        .WithMany("UsageLogs")
-                        .HasForeignKey("PersonalUsagePlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("PersonalUsagePlan");
-                });
-
             modelBuilder.Entity("backend.Models.Core.StockTransaction", b =>
                 {
                     b.HasOne("backend.Models.Core.InventoryItem", "InventoryItem")
@@ -2863,13 +2685,6 @@ namespace backend.Migrations
                     b.Navigation("HiredVehicleBills");
 
                     b.Navigation("MaintenanceBills");
-
-                    b.Navigation("MiscellaneousBills");
-                });
-
-            modelBuilder.Entity("backend.Models.Core.PersonalUsagePlan", b =>
-                {
-                    b.Navigation("UsageLogs");
                 });
 
             modelBuilder.Entity("backend.Models.Core.Role", b =>

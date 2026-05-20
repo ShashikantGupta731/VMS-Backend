@@ -14,5 +14,12 @@ namespace backend.Services
         Task<bool> VerifyVehicleAsync(int id, string verifierId, string comments, int status);
         Task<bool> TransferVehicleAsync(TransferVehicleDto dto, int userId);
         Task<bool> CondemnVehicleAsync(CondemnVehicleDto dto, int userId);
+        Task<List<backend.DTOs.Vehicle.FitnessCertificateDto>> GetFitnessCertificatesAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetFuelBillsAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetMaintenanceBillsAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetServiceBillsAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetBatteryChangesAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.BillRecordDto>> GetTyreChangesAsync(int vehicleId);
+        Task<List<backend.DTOs.Vehicle.TransferHistoryDto>> GetTransferHistoryAsync(int vehicleId);
     }
 }

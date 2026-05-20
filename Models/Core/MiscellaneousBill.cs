@@ -1,18 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using backend.Models.Masters;
 
 namespace backend.Models.Core
 {
-    public class FuelBill
+    public class MiscellaneousBill
     {
         [Key]
-        public int FuelBillId { get; set; }
-
-        [Required]
-        public int VehicleId { get; set; }
-        [ForeignKey("VehicleId")]
-        public virtual VehicleInfo Vehicle { get; set; } = null!;
+        public int MiscellaneousBillId { get; set; }
 
         [Required]
         [MaxLength(50)]
@@ -22,19 +16,17 @@ namespace backend.Models.Core
         public DateTime BillDate { get; set; }
 
         [Required]
-        public int OdometerReading { get; set; }
+        public int InventoryItemId { get; set; }
+        [ForeignKey("InventoryItemId")]
+        public virtual InventoryItem InventoryItem { get; set; } = null!;
+
+        public string? ModelNumber { get; set; }
 
         [Required]
-        public decimal FuelQuantity { get; set; } // Litres
+        public int Quantity { get; set; }
 
         [Required]
         public decimal Amount { get; set; }
-
-        public string? NocFile { get; set; }
-        public DateTime? NocIssueDate { get; set; }
-        public DateTime? NocExpiryDate { get; set; }
-        public string? SanctionPermissionFile { get; set; }
-        public string? SanctionAuthorityMobileNo { get; set; }
 
         [Required]
         public BillStatus Status { get; set; } = BillStatus.Draft;
@@ -43,6 +35,7 @@ namespace backend.Models.Core
         [ForeignKey("ClaimId")]
         public virtual BillClaim? Claim { get; set; }
 
+        // Audit Fields
         [Required]
         public int CreatedById { get; set; }
         [ForeignKey("CreatedById")]

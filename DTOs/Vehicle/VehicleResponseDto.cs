@@ -36,6 +36,16 @@ namespace backend.DTOs
         public string District { get; set; } = string.Empty;
         public string Tehsil { get; set; } = string.Empty;
         public string VehicleOwnerOffice { get; set; } = string.Empty;
+        public string TreasuryType { get; set; } = string.Empty;
+        public string OfficeAddress { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public string RequisitionDeptName { get; set; } = string.Empty;
+        public string RequisitionOfficeName { get; set; } = string.Empty;
+        
+        // Nodal Officer
+        public string NodalOfficerName { get; set; } = string.Empty;
+        public string NodalOfficerEmail { get; set; } = string.Empty;
+        public string NodalOfficerMobileNo { get; set; } = string.Empty;
         
         // Registration Details
         public string RegistrationType { get; set; } = string.Empty;
@@ -61,11 +71,15 @@ namespace backend.DTOs
         public DateTime? PurchaseDate { get; set; }
         public DateTime? FitnessUpto { get; set; }
         public int? KmsCovered { get; set; }
+        public DateTime? PDate { get; set; }
+        public DateTime? ReadingUptodate { get; set; }
+        public string FinancialYearReading { get; set; } = string.Empty;
         
         // Fuel & Maintenance
         public decimal? FuelCostLast3Months { get; set; }
         public decimal? FuelLitresLast3Months { get; set; }
         public decimal? MaintenanceCostLast3Months { get; set; }
+        public string MaintenenceDuration { get; set; } = string.Empty;
         
         // Tyre Details
         public string IsTyreOriginal { get; set; } = string.Empty;

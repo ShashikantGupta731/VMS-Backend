@@ -17,7 +17,8 @@ namespace backend.Models.Core
         Fuel = 1,
         Maintenance = 2,
         Hired = 3,
-        Contractual = 4
+        Contractual = 4,
+        Miscellaneous = 5
     }
 
     public class BillClaim
@@ -72,5 +73,6 @@ namespace backend.Models.Core
         public virtual ICollection<MaintenanceBill> MaintenanceBills { get; set; } = new List<MaintenanceBill>();
         public virtual ICollection<HiredVehicleBill> HiredVehicleBills { get; set; } = new List<HiredVehicleBill>();
         public virtual ICollection<ContractualBill> ContractualBills { get; set; } = new List<ContractualBill>();
+        public virtual ICollection<MiscellaneousBill> MiscellaneousBills { get; set; } = new List<MiscellaneousBill>();
     }
 }

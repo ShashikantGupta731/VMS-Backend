@@ -817,5 +817,11 @@ namespace backend.Services
 
             return null;
         }
+        public async Task<List<InventoryDropdownDto>> GetAllInventoryItemsAsync()
+        {
+            return await _context.InventoryItems
+                .Where(i => i.IsActive)
+                .Select(i => new InventoryDropdownDto(i.InventoryItemId, i.Name, i.IsModelRequired)).ToListAsync();
+        }
     }
 }

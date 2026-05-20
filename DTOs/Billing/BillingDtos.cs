@@ -16,6 +16,7 @@ namespace backend.DTOs.Billing
         public DateTime? NocIssueDate { get; set; }
         public DateTime? NocExpiryDate { get; set; }
         public string? SanctionPermissionFile { get; set; }
+        public string? SanctionAuthorityMobileNo { get; set; }
     }
 
     public class FuelBillResponseDto
@@ -31,6 +32,11 @@ namespace backend.DTOs.Billing
         public BillStatus Status { get; set; }
         public int? ClaimId { get; set; }
         public string? ClaimNumber { get; set; }
+        public string? SanctionAuthorityMobileNo { get; set; }
+        public string? NocFile { get; set; }
+        public DateTime? NocIssueDate { get; set; }
+        public DateTime? NocExpiryDate { get; set; }
+        public string? SanctionPermissionFile { get; set; }
     }
 
     // Maintenance Bill DTOs
@@ -131,6 +137,34 @@ namespace backend.DTOs.Billing
         public int? ClaimId { get; set; }
     }
 
+    // Miscellaneous Bill DTOs
+    public class CreateMiscellaneousBillDto
+    {
+        public int? MiscellaneousBillId { get; set; }
+        public string BillNumber { get; set; } = string.Empty;
+        public DateTime BillDate { get; set; }
+        public int InventoryMasterId { get; set; }
+        public string? ModelNumber { get; set; }
+        public int Quantity { get; set; }
+        public decimal Amount { get; set; }
+        public BillStatus Status { get; set; }
+        public int? ClaimId { get; set; }
+    }
+
+    public class MiscellaneousBillResponseDto
+    {
+        public int MiscellaneousBillId { get; set; }
+        public string BillNumber { get; set; } = string.Empty;
+        public DateTime BillDate { get; set; }
+        public int InventoryMasterId { get; set; }
+        public string InventoryName { get; set; } = string.Empty;
+        public string? ModelNumber { get; set; }
+        public int Quantity { get; set; }
+        public decimal Amount { get; set; }
+        public BillStatus Status { get; set; }
+        public int? ClaimId { get; set; }
+    }
+
     // Bill Claim DTOs
     public class BillClaimResponseDto
     {
@@ -142,11 +176,11 @@ namespace backend.DTOs.Billing
         public string? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; }
         public string? Comments { get; set; }
+        public bool ForwardedToTreasury { get; set; }
     }
 
     public class BillClaimDetailDto : BillClaimResponseDto
     {
-        public bool ForwardedToTreasury { get; set; }
         public string? SubVoucherNo { get; set; }
         public string? SubVoucherDescription { get; set; }
         public string? SanctionOrderNo { get; set; }
@@ -159,6 +193,7 @@ namespace backend.DTOs.Billing
         public List<MaintenanceBillResponseDto> MaintenanceBills { get; set; } = new();
         public List<HiredVehicleBillResponseDto> HiredVehicleBills { get; set; } = new();
         public List<ContractualBillResponseDto> ContractualBills { get; set; } = new();
+        public List<MiscellaneousBillResponseDto> MiscellaneousBills { get; set; } = new();
     }
 
     public class CreateClaimDto

@@ -55,6 +55,7 @@ namespace backend.Services
         Task<bool> DeleteDesignationAsync(int id);
 
         Task<HrmsResponseDto?> VerifyHRMSCodeAsync(string hrmsCode);
+        Task<List<InventoryDropdownDto>> GetAllInventoryItemsAsync();
     }
 }
 
