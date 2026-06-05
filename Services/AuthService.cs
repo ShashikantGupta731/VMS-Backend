@@ -121,7 +121,8 @@ namespace backend.Services
                 name = user.Name,
                 phone = user.PhoneNo,
                 roles,
-                isGuest = user.IsGuest
+                isGuest = user.IsGuest,
+                ddoCode = user.DDOCode   // IFMS-formatted DDO code (e.g. CHD00/0135) — used in Treasury bill submission
             };
 
             Console.WriteLine("14. AuthService.LoginAsync: Login flow COMPLETE.");

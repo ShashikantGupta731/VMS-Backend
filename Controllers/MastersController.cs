@@ -349,6 +349,167 @@ namespace backend.Controllers
             return Ok(result);
         }
 
+        // --- Department Admin ---
+        [HttpPost("departments")]
+        public async Task<ActionResult<DepartmentResponseDto>> CreateDepartment(CreateDepartmentDto request)
+        {
+            return Ok(await _masterService.AddDepartmentAsync(request));
+        }
+
+        [HttpPut("departments/{id}")]
+        public async Task<ActionResult<DepartmentResponseDto>> UpdateDepartment(int id, UpdateDepartmentDto request)
+        {
+            var result = await _masterService.UpdateDepartmentAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("departments/{id}")]
+        public async Task<ActionResult> DeleteDepartment(int id)
+        {
+            var result = await _masterService.DeleteDepartmentAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- District Admin ---
+        [HttpPost("districts")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateDistrict(DistrictRequestDto request)
+        {
+            return Ok(await _masterService.AddDistrictAsync(request));
+        }
+
+        [HttpPut("districts/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateDistrict(int id, DistrictRequestDto request)
+        {
+            var result = await _masterService.UpdateDistrictAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("districts/{id}")]
+        public async Task<ActionResult> DeleteDistrict(int id)
+        {
+            var result = await _masterService.DeleteDistrictAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- Tehsil Admin ---
+        [HttpPost("tehsils")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateTehsil(TehsilRequestDto request)
+        {
+            return Ok(await _masterService.AddTehsilAsync(request));
+        }
+
+        [HttpPut("tehsils/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateTehsil(int id, TehsilRequestDto request)
+        {
+            var result = await _masterService.UpdateTehsilAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("tehsils/{id}")]
+        public async Task<ActionResult> DeleteTehsil(int id)
+        {
+            var result = await _masterService.DeleteTehsilAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- Vehicle Type Admin ---
+        [HttpPost("vehicle-types")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateVehicleType(VehicleTypeRequestDto request)
+        {
+            return Ok(await _masterService.AddVehicleTypeAsync(request));
+        }
+
+        [HttpPut("vehicle-types/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateVehicleType(int id, VehicleTypeRequestDto request)
+        {
+            var result = await _masterService.UpdateVehicleTypeAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("vehicle-types/{id}")]
+        public async Task<ActionResult> DeleteVehicleType(int id)
+        {
+            var result = await _masterService.DeleteVehicleTypeAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- Manufacturer Admin ---
+        [HttpPost("manufacturers")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateManufacturer(ManufacturerRequestDto request)
+        {
+            return Ok(await _masterService.AddManufacturerAsync(request));
+        }
+
+        [HttpPut("manufacturers/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateManufacturer(int id, ManufacturerRequestDto request)
+        {
+            var result = await _masterService.UpdateManufacturerAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("manufacturers/{id}")]
+        public async Task<ActionResult> DeleteManufacturer(int id)
+        {
+            var result = await _masterService.DeleteManufacturerAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- Office Type Admin ---
+        [HttpPost("office-types")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateOfficeType(OfficeTypeRequestDto request)
+        {
+            return Ok(await _masterService.AddOfficeTypeAsync(request));
+        }
+
+        [HttpPut("office-types/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateOfficeType(int id, OfficeTypeRequestDto request)
+        {
+            var result = await _masterService.UpdateOfficeTypeAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("office-types/{id}")]
+        public async Task<ActionResult> DeleteOfficeType(int id)
+        {
+            var result = await _masterService.DeleteOfficeTypeAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- Allocation Admin ---
+        [HttpPost("allocations")]
+        public async Task<ActionResult<DropdownResponseDto>> CreateAllocation(AllocationRequestDto request)
+        {
+            return Ok(await _masterService.AddAllocationAsync(request));
+        }
+
+        [HttpPut("allocations/{id}")]
+        public async Task<ActionResult<DropdownResponseDto>> UpdateAllocation(int id, AllocationRequestDto request)
+        {
+            var result = await _masterService.UpdateAllocationAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("allocations/{id}")]
+        public async Task<ActionResult> DeleteAllocation(int id)
+        {
+            var result = await _masterService.DeleteAllocationAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
         // --- Model Admin ---
         [HttpPost("vehicle-models")]
         public async Task<ActionResult<VehicleModelResponseDto>> CreateModel(VehicleModelRequestDto request)
@@ -399,6 +560,64 @@ namespace backend.Controllers
         public async Task<ActionResult<List<InventoryDropdownDto>>> GetInventoryItems()
         {
             return Ok(await _masterService.GetAllInventoryItemsAsync());
+        }
+
+        // --- FleetStrength Admin ---
+        [HttpGet("fleet-strengths")]
+        public async Task<ActionResult<List<FleetStrengthResponseDto>>> GetFleetStrengths([FromQuery] int? departmentId)
+        {
+            return Ok(await _masterService.GetAllFleetStrengthsAsync(departmentId));
+        }
+
+        [HttpPost("fleet-strengths")]
+        public async Task<ActionResult<FleetStrengthResponseDto>> CreateFleetStrength(FleetStrengthRequestDto request)
+        {
+            return Ok(await _masterService.AddFleetStrengthAsync(request));
+        }
+
+        [HttpPut("fleet-strengths/{id}")]
+        public async Task<ActionResult<FleetStrengthResponseDto>> UpdateFleetStrength(int id, FleetStrengthRequestDto request)
+        {
+            var result = await _masterService.UpdateFleetStrengthAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("fleet-strengths/{id}")]
+        public async Task<ActionResult> DeleteFleetStrength(int id)
+        {
+            var result = await _masterService.DeleteFleetStrengthAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
+        }
+
+        // --- StoreItems Admin ---
+        [HttpGet("store-items")]
+        public async Task<ActionResult<List<StoreItemResponseDto>>> GetStoreItems()
+        {
+            return Ok(await _masterService.GetAllStoreItemsAsync());
+        }
+
+        [HttpPost("store-items")]
+        public async Task<ActionResult<StoreItemResponseDto>> CreateStoreItem(StoreItemRequestDto request)
+        {
+            return Ok(await _masterService.AddStoreItemAsync(request));
+        }
+
+        [HttpPut("store-items/{id}")]
+        public async Task<ActionResult<StoreItemResponseDto>> UpdateStoreItem(int id, StoreItemRequestDto request)
+        {
+            var result = await _masterService.UpdateStoreItemAsync(id, request);
+            if (result == null) return NotFound();
+            return Ok(result);
+        }
+
+        [HttpDelete("store-items/{id}")]
+        public async Task<ActionResult> DeleteStoreItem(int id)
+        {
+            var result = await _masterService.DeleteStoreItemAsync(id);
+            if (!result) return NotFound();
+            return NoContent();
         }
     }
 }

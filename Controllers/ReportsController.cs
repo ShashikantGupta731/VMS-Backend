@@ -10,10 +10,34 @@ namespace backend.Controllers
     public class ReportsController : ControllerBase
     {
         private readonly IReportService _reportService;
+        private readonly backend.Services.Reports.IReportStrategyFactory _strategyFactory;
 
-        public ReportsController(IReportService reportService)
+        public ReportsController(IReportService reportService, backend.Services.Reports.IReportStrategyFactory strategyFactory)
         {
             _reportService = reportService;
+            _strategyFactory = strategyFactory;
+        }
+
+        [HttpPost("generate-report")]
+        public async Task<IActionResult> GenerateReport([FromBody] backend.DTOs.Reports.GenericReportRequestDto request)
+        {
+            try
+            {
+                Console.WriteLine("DEBUG: GenerateReport called!");
+                Console.WriteLine($"DEBUG: ReportType: {request.ReportType}");
+                foreach(var kv in request.Filters)
+                {
+                    Console.WriteLine($"DEBUG: Filter Key: '{kv.Key}', Value: '{kv.Value}', Type: {kv.Value?.GetType().Name}");
+                }
+
+                var strategy = _strategyFactory.GetStrategy(request.ReportType);
+                var data = await strategy.GenerateDataAsync(request);
+                return Ok(data);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpGet("allocation-wise")]

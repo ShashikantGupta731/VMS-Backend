@@ -22,11 +22,9 @@ namespace backend.Models.Core
         // --- 3. Fuel Consumption Details ---
         public int OdometerReading { get; set; }
         
-        [NotMapped]
-        public object? FuelConsumptionLitres { get; set; } // Legacy dynamic type
+        public decimal? FuelConsumptionLitres { get; set; } // Updated from object?
         
-        [NotMapped]
-        public object? FuelConsumptionCost { get; set; } // Legacy dynamic type
+        public decimal? FuelConsumptionCost { get; set; } // Updated from object?
         
         // --- 4. Permission & NOC Details ---
         public string Permission { get; set; } = string.Empty;

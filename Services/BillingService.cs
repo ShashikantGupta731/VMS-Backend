@@ -135,6 +135,18 @@ namespace backend.Services
             return true;
         }
 
+        public async Task<bool> UpdateFuelBillOdometerAsync(int id, UpdateOdometerDto dto)
+        {
+            var bill = await _context.FuelBills.FindAsync(id);
+            if (bill == null) return false;
+
+            bill.OdometerReading = dto.OdometerReading;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
+            
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         #endregion
 
         #region Maintenance Bills
@@ -245,6 +257,61 @@ namespace backend.Services
             _context.MaintenanceBills.Remove(bill);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<bool> UpdateMaintenanceBillOdometerAsync(int id, UpdateOdometerDto dto)
+        {
+            var bill = await _context.MaintenanceBills.FindAsync(id);
+            if (bill == null) return false;
+
+            bill.OdometerReading = dto.OdometerReading;
+            bill.BillDate = DateTime.SpecifyKind(dto.BillDate, DateTimeKind.Utc);
+            
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<object?> SearchBillByIdAsync(int id)
+        {
+            var results = new List<object>();
+
+            var fuelBill = await _context.FuelBills.Include(f => f.Vehicle).FirstOrDefaultAsync(f => f.FuelBillId == id);
+            if (fuelBill != null)
+            {
+                results.Add(new { Type = 1, Bill = new FuelBillResponseDto
+                {
+                    FuelBillId = fuelBill.FuelBillId,
+                    VehicleId = fuelBill.VehicleId,
+                    VehicleNumber = fuelBill.Vehicle.VehicleNumber,
+                    BillNumber = fuelBill.BillNumber,
+                    BillDate = fuelBill.BillDate,
+                    OdometerReading = fuelBill.OdometerReading,
+                    FuelQuantity = fuelBill.FuelQuantity,
+                    Amount = fuelBill.Amount,
+                    Status = fuelBill.Status,
+                    ClaimId = fuelBill.ClaimId
+                }});
+            }
+
+            var maintBill = await _context.MaintenanceBills.Include(m => m.Vehicle).FirstOrDefaultAsync(m => m.MaintenanceBillId == id);
+            if (maintBill != null)
+            {
+                results.Add(new { Type = 2, Bill = new MaintenanceBillResponseDto
+                {
+                    MaintenanceBillId = maintBill.MaintenanceBillId,
+                    VehicleId = maintBill.VehicleId,
+                    VehicleNumber = maintBill.Vehicle.VehicleNumber,
+                    BillNumber = maintBill.BillNumber,
+                    BillDate = maintBill.BillDate,
+                    OdometerReading = maintBill.OdometerReading,
+                    Amount = maintBill.Amount,
+                    MaintenanceType = maintBill.MaintenanceType,
+                    Status = maintBill.Status,
+                    ClaimId = maintBill.ClaimId
+                }});
+            }
+
+            return results;
         }
 
         #endregion
@@ -376,12 +443,51 @@ namespace backend.Services
             }).ToListAsync();
         }
 
+        public async Task<List<BillClaimResponseDto>> GetPendingIntegrationClaimsAsync(int userId, string role)
+        {
+            IQueryable<BillClaim> query = _context.BillClaims.Include(c => c.CreatedBy);
+
+            if (role == "DDO")
+            {
+                query = query.Where(c => c.CreatedById == userId);
+            }
+            
+            query = query.Where(c => (c.Status == BillStatus.Verified || c.Status == BillStatus.Discarded) && c.ForwardedToTreasury == false);
+
+            return await query.Select(c => new BillClaimResponseDto
+            {
+                BillClaimId = c.BillClaimId,
+                ClaimNumber = c.ClaimNumber,
+                TotalAmount = c.TotalAmount,
+                Status = c.Status,
+                Type = c.Type,
+                CreatedBy = c.CreatedBy != null ? $"{c.CreatedBy.FirstName} {c.CreatedBy.LastName}" : null,
+                CreatedAt = c.CreatedAt,
+                Comments = c.Comments,
+                ForwardedToTreasury = c.ForwardedToTreasury
+            }).OrderByDescending(c => c.CreatedAt).ToListAsync();
+        }
+
         public async Task<BillClaimDetailDto?> GetClaimByIdAsync(int id)
         {
             var claim = await _context.BillClaims
                 .Include(c => c.CreatedBy)
                 .FirstOrDefaultAsync(c => c.BillClaimId == id);
 
+            return await GetClaimDetailInternalAsync(claim);
+        }
+
+        public async Task<BillClaimDetailDto?> GetClaimByNumberAsync(string claimNumber)
+        {
+            var claim = await _context.BillClaims
+                .Include(c => c.CreatedBy)
+                .FirstOrDefaultAsync(c => c.ClaimNumber == claimNumber);
+
+            return await GetClaimDetailInternalAsync(claim);
+        }
+
+        private async Task<BillClaimDetailDto?> GetClaimDetailInternalAsync(BillClaim? claim)
+        {
             if (claim == null) return null;
 
             var dto = new BillClaimDetailDto
@@ -739,6 +845,67 @@ namespace backend.Services
 
             var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
             foreach(var b in miscBills) { b.Status = BillStatus.Draft; b.ClaimId = null; }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> DiscardClaimAsync(int claimId, int userId, string? comments)
+        {
+            var claim = await _context.BillClaims.FindAsync(claimId);
+            // Can only discard bills that are verified (Ready for IFMS) or pending
+            if (claim == null || (claim.Status != BillStatus.Verified && claim.Status != BillStatus.Pending)) return false;
+
+            claim.Status = BillStatus.Discarded;
+            claim.VerifiedById = userId;
+            claim.VerifiedAt = DateTime.UtcNow;
+            claim.Comments = comments;
+
+            // Also mark individual bills as discarded
+            var fuelBills = await _context.FuelBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            fuelBills.ForEach(b => b.Status = BillStatus.Discarded);
+
+            var maintBills = await _context.MaintenanceBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            maintBills.ForEach(b => b.Status = BillStatus.Discarded);
+
+            var hiredBills = await _context.HiredVehicleBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            hiredBills.ForEach(b => b.Status = BillStatus.Discarded);
+
+            var contractBills = await _context.ContractualBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            contractBills.ForEach(b => b.Status = BillStatus.Discarded);
+
+            var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            miscBills.ForEach(b => b.Status = BillStatus.Discarded);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RestoreClaimAsync(int claimId, int userId, string? comments)
+        {
+            var claim = await _context.BillClaims.FindAsync(claimId);
+            if (claim == null || claim.Status != BillStatus.Discarded) return false;
+
+            // Restore back to Verified state (Ready for IFMS)
+            claim.Status = BillStatus.Verified;
+            claim.VerifiedById = userId;
+            claim.VerifiedAt = DateTime.UtcNow;
+            claim.Comments = comments;
+
+            var fuelBills = await _context.FuelBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            fuelBills.ForEach(b => b.Status = BillStatus.Verified);
+
+            var maintBills = await _context.MaintenanceBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            maintBills.ForEach(b => b.Status = BillStatus.Verified);
+
+            var hiredBills = await _context.HiredVehicleBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            hiredBills.ForEach(b => b.Status = BillStatus.Verified);
+
+            var contractBills = await _context.ContractualBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            contractBills.ForEach(b => b.Status = BillStatus.Verified);
+
+            var miscBills = await _context.MiscellaneousBills.Where(b => b.ClaimId == claimId).ToListAsync();
+            miscBills.ForEach(b => b.Status = BillStatus.Verified);
 
             await _context.SaveChangesAsync();
             return true;

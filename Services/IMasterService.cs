@@ -44,6 +44,41 @@ namespace backend.Services
         Task<ProjectResponseDto?> UpdateProjectAsync(int id, ProjectRequestDto request);
         Task<bool> DeleteProjectAsync(int id);
 
+        // Districts
+        Task<DropdownResponseDto> AddDistrictAsync(DistrictRequestDto request);
+        Task<DropdownResponseDto?> UpdateDistrictAsync(int id, DistrictRequestDto request);
+        Task<bool> DeleteDistrictAsync(int id);
+
+        // Tehsils
+        Task<DropdownResponseDto> AddTehsilAsync(TehsilRequestDto request);
+        Task<DropdownResponseDto?> UpdateTehsilAsync(int id, TehsilRequestDto request);
+        Task<bool> DeleteTehsilAsync(int id);
+
+        // VehicleTypes
+        Task<DropdownResponseDto> AddVehicleTypeAsync(VehicleTypeRequestDto request);
+        Task<DropdownResponseDto?> UpdateVehicleTypeAsync(int id, VehicleTypeRequestDto request);
+        Task<bool> DeleteVehicleTypeAsync(int id);
+
+        // Manufacturers
+        Task<DropdownResponseDto> AddManufacturerAsync(ManufacturerRequestDto request);
+        Task<DropdownResponseDto?> UpdateManufacturerAsync(int id, ManufacturerRequestDto request);
+        Task<bool> DeleteManufacturerAsync(int id);
+
+        // OfficeTypes
+        Task<DropdownResponseDto> AddOfficeTypeAsync(OfficeTypeRequestDto request);
+        Task<DropdownResponseDto?> UpdateOfficeTypeAsync(int id, OfficeTypeRequestDto request);
+        Task<bool> DeleteOfficeTypeAsync(int id);
+
+        // Allocations
+        Task<DropdownResponseDto> AddAllocationAsync(AllocationRequestDto request);
+        Task<DropdownResponseDto?> UpdateAllocationAsync(int id, AllocationRequestDto request);
+        Task<bool> DeleteAllocationAsync(int id);
+
+        // Departments
+        Task<DepartmentResponseDto> AddDepartmentAsync(CreateDepartmentDto request);
+        Task<DepartmentResponseDto?> UpdateDepartmentAsync(int id, UpdateDepartmentDto request);
+        Task<bool> DeleteDepartmentAsync(int id);
+
         // Models
         Task<VehicleModelResponseDto> AddVehicleModelAsync(VehicleModelRequestDto request);
         Task<VehicleModelResponseDto?> UpdateVehicleModelAsync(int id, VehicleModelRequestDto request);
@@ -56,6 +91,20 @@ namespace backend.Services
 
         Task<HrmsResponseDto?> VerifyHRMSCodeAsync(string hrmsCode);
         Task<List<InventoryDropdownDto>> GetAllInventoryItemsAsync();
+
+        // FleetStrength
+        Task<List<FleetStrengthResponseDto>> GetAllFleetStrengthsAsync(int? deptId = null, int? districtId = null, int? vehicleTypeId = null);
+        Task<FleetStrengthResponseDto?> GetFleetStrengthByIdAsync(int id);
+        Task<FleetStrengthResponseDto> AddFleetStrengthAsync(FleetStrengthRequestDto request);
+        Task<FleetStrengthResponseDto?> UpdateFleetStrengthAsync(int id, FleetStrengthRequestDto request);
+        Task<bool> DeleteFleetStrengthAsync(int id);
+
+        // StoreItems (InventoryItem)
+        Task<List<StoreItemResponseDto>> GetAllStoreItemsAsync();
+        Task<StoreItemResponseDto?> GetStoreItemByIdAsync(int id);
+        Task<StoreItemResponseDto> AddStoreItemAsync(StoreItemRequestDto request);
+        Task<StoreItemResponseDto?> UpdateStoreItemAsync(int id, StoreItemRequestDto request);
+        Task<bool> DeleteStoreItemAsync(int id);
     }
 }
 

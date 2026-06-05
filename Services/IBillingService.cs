@@ -10,12 +10,15 @@ namespace backend.Services
         Task<FuelBillResponseDto?> GetFuelBillByIdAsync(int id, int userId);
         Task<FuelBillResponseDto> SaveFuelBillAsync(CreateFuelBillDto dto, int userId);
         Task<bool> DeleteFuelBillAsync(int id, int userId);
+        Task<bool> UpdateFuelBillOdometerAsync(int id, UpdateOdometerDto dto);
 
         // Maintenance Bills
         Task<List<MaintenanceBillResponseDto>> GetMaintenanceBillsAsync(int userId, int? claimId = null);
         Task<MaintenanceBillResponseDto?> GetMaintenanceBillByIdAsync(int id, int userId);
         Task<MaintenanceBillResponseDto> SaveMaintenanceBillAsync(CreateMaintenanceBillDto dto, int userId);
         Task<bool> DeleteMaintenanceBillAsync(int id, int userId);
+        Task<bool> UpdateMaintenanceBillOdometerAsync(int id, UpdateOdometerDto dto);
+        Task<object?> SearchBillByIdAsync(int id);
 
         // Hired Vehicle Bills
         Task<List<HiredVehicleBillResponseDto>> GetHiredVehicleBillsAsync(int userId, int? claimId = null);
@@ -35,9 +38,13 @@ namespace backend.Services
         // Claims
         Task<BillClaimResponseDto> CreateClaimAsync(CreateClaimDto dto, int userId);
         Task<List<BillClaimResponseDto>> GetClaimsAsync(int userId, string role, BillStatus? status = null, bool? forwardedToTreasury = null);
+        Task<List<BillClaimResponseDto>> GetPendingIntegrationClaimsAsync(int userId, string role);
         Task<BillClaimDetailDto?> GetClaimByIdAsync(int id);
+        Task<BillClaimDetailDto?> GetClaimByNumberAsync(string claimNumber);
         Task<bool> VerifyClaimAsync(int claimId, int verifierId, string? comments);
         Task<bool> RejectClaimAsync(int claimId, int verifierId, string comments);
+        Task<bool> DiscardClaimAsync(int claimId, int userId, string? comments);
+        Task<bool> RestoreClaimAsync(int claimId, int userId, string? comments);
 
         // Validation Helpers
         Task<OdometerValidationDto> GetOdometerValidationAsync(int vehicleId, DateTime billDate);

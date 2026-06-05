@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using backend.Data;
 using backend.Services;
+using backend.Middlewares;
 using Scalar.AspNetCore;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +32,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp",
         builder => builder
-            .WithOrigins("http://localhost:4200", "http://localhost:57397")
+            .WithOrigins("*")
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
@@ -50,7 +50,36 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IIfmsService, IfmsService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IPetrolPumpService, PetrolPumpService>();
 
+// Register Dynamic Report Strategies
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.IncorrectOdometerReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.FuelLimitExceededReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.OfficerMultipleVehiclesReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.DdosNotMappedReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleDetailsReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.CondemnedVehicleReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.FitnessCertificateReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.PublicGuestRecordsReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleMaintenanceReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleFuelInfoReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.DesignationWiseFuelLimitReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VerifiedUnverifiedVehicleReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.AllocationTypeWiseDataReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.TehsilsWithNoVehiclesReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleModelReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.NotPostingUnderPolReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleTransferReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.AllocationWiseBillingReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VoucherTypeBillsReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.VehicleExpenditureReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.DepartmentWiseReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.DistrictWiseReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.OfficeWiseReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.DesignationWiseReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.FinancialYearExpenditureStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.GrnDetailsReportStrategy>();
+builder.Services.AddScoped<backend.Services.Reports.IReportStrategyFactory, backend.Services.Reports.ReportStrategyFactory>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(options =>
@@ -97,6 +126,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -107,6 +138,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAngularApp");
 app.UseStaticFiles(); // Serve static files
 app.UseAuthentication();
+app.UseMiddleware<ActivityLoggingMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

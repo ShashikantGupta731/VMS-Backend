@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using backend.Models.Core;
 
 namespace backend.DTOs.Billing
@@ -210,5 +211,14 @@ namespace backend.DTOs.Billing
         public string? SanctionAuthority { get; set; }
         public string? FirmName { get; set; }
         public decimal Tax { get; set; }
+    }
+
+    public class UpdateOdometerDto
+    {
+        [Required]
+        public int OdometerReading { get; set; }
+
+        [Required]
+        public DateTime BillDate { get; set; }
     }
 }

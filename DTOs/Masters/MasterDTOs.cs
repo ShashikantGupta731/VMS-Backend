@@ -139,6 +139,39 @@ namespace backend.DTOs.Masters
         int VehicleTypeId
     );
 
+    public record DistrictRequestDto(
+        string DistrictName,
+        string DistAbbre,
+        bool IsActive
+    );
+
+    public record TehsilRequestDto(
+        string TehsilName,
+        int DistrictId,
+        bool IsActive
+    );
+
+    public record VehicleTypeRequestDto(
+        string VehicleTypeName,
+        string VehicleTypeExample,
+        int VehicleLifeKM,
+        int VehicleLifeYears,
+        bool IsActive
+    );
+
+    public record ManufacturerRequestDto(
+        string ManufacturerName,
+        bool IsActive
+    );
+
+    public record OfficeTypeRequestDto(
+        string OfficeTypeName
+    );
+
+    public record AllocationRequestDto(
+        string AllocationTypeName
+    );
+
     public record DesignationRequestDto(
         string Name,
         int DepartmentId,
@@ -190,6 +223,25 @@ namespace backend.DTOs.Masters
         string VehicleTypeName,
         DateTime? PDate,
         DateTime? TDate
+    );
+
+    // StoreItem (InventoryItem) DTOs
+    public record StoreItemRequestDto(
+        string Name,
+        string? Category,
+        string? Description,
+        bool IsModelRequired,
+        bool IsActive
+    );
+
+    public record StoreItemResponseDto(
+        int InventoryItemId,
+        string Name,
+        string? Category,
+        string? Description,
+        bool IsModelRequired,
+        bool IsActive,
+        DateTime CreatedAt
     );
 }
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.DTOs.Masters;
 using backend.Models.Masters;
+using backend.Models.Core;
 
 namespace backend.Services
 {
@@ -602,6 +603,274 @@ namespace backend.Services
             return true;
         }
 
+        // --- District CRUD ---
+        public async Task<DropdownResponseDto> AddDistrictAsync(DistrictRequestDto request)
+        {
+            var district = new District
+            {
+                DistrictName = request.DistrictName,
+                DistAbbre = request.DistAbbre,
+                PDate = DateTime.UtcNow,
+                IsActive = request.IsActive
+            };
+            _context.Districts.Add(district);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(district.DistrictId, district.DistrictName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateDistrictAsync(int id, DistrictRequestDto request)
+        {
+            var district = await _context.Districts.FindAsync(id);
+            if (district == null) return null;
+            
+            district.DistrictName = request.DistrictName;
+            district.DistAbbre = request.DistAbbre;
+            district.TDate = DateTime.UtcNow;
+            district.IsActive = request.IsActive;
+            await _context.SaveChangesAsync();
+            
+            return new DropdownResponseDto(district.DistrictId, district.DistrictName);
+        }
+
+        public async Task<bool> DeleteDistrictAsync(int id)
+        {
+            var district = await _context.Districts.FindAsync(id);
+            if (district == null) return false;
+            
+            // Soft delete
+            district.IsActive = false;
+            district.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- Tehsil CRUD ---
+        public async Task<DropdownResponseDto> AddTehsilAsync(TehsilRequestDto request)
+        {
+            var tehsil = new Tehsil
+            {
+                TehsilName = request.TehsilName,
+                DistrictId = request.DistrictId,
+                PDate = DateTime.UtcNow,
+                IsActive = request.IsActive
+            };
+            _context.Tehsils.Add(tehsil);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(tehsil.TehsilId, tehsil.TehsilName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateTehsilAsync(int id, TehsilRequestDto request)
+        {
+            var tehsil = await _context.Tehsils.FindAsync(id);
+            if (tehsil == null) return null;
+
+            tehsil.TehsilName = request.TehsilName;
+            tehsil.DistrictId = request.DistrictId;
+            tehsil.TDate = DateTime.UtcNow;
+            tehsil.IsActive = request.IsActive;
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(tehsil.TehsilId, tehsil.TehsilName);
+        }
+
+        public async Task<bool> DeleteTehsilAsync(int id)
+        {
+            var tehsil = await _context.Tehsils.FindAsync(id);
+            if (tehsil == null) return false;
+
+            tehsil.IsActive = false;
+            tehsil.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- VehicleType CRUD ---
+        public async Task<DropdownResponseDto> AddVehicleTypeAsync(VehicleTypeRequestDto request)
+        {
+            var vt = new VehicleType
+            {
+                VehicleTypeName = request.VehicleTypeName,
+                VehicleTypeExample = request.VehicleTypeExample,
+                VehicleLifeKM = request.VehicleLifeKM,
+                VehicleLifeYears = request.VehicleLifeYears,
+                PDate = DateTime.UtcNow,
+                IsActive = request.IsActive
+            };
+            _context.VehicleTypes.Add(vt);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(vt.VehicleTypeId, vt.VehicleTypeName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateVehicleTypeAsync(int id, VehicleTypeRequestDto request)
+        {
+            var vt = await _context.VehicleTypes.FindAsync(id);
+            if (vt == null) return null;
+
+            vt.VehicleTypeName = request.VehicleTypeName;
+            vt.VehicleTypeExample = request.VehicleTypeExample;
+            vt.VehicleLifeKM = request.VehicleLifeKM;
+            vt.VehicleLifeYears = request.VehicleLifeYears;
+            vt.TDate = DateTime.UtcNow;
+            vt.IsActive = request.IsActive;
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(vt.VehicleTypeId, vt.VehicleTypeName);
+        }
+
+        public async Task<bool> DeleteVehicleTypeAsync(int id)
+        {
+            var vt = await _context.VehicleTypes.FindAsync(id);
+            if (vt == null) return false;
+
+            vt.IsActive = false;
+            vt.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- Manufacturer CRUD ---
+        public async Task<DropdownResponseDto> AddManufacturerAsync(ManufacturerRequestDto request)
+        {
+            var m = new Manufacturer
+            {
+                ManufacturerName = request.ManufacturerName,
+                PDate = DateTime.UtcNow,
+                IsActive = request.IsActive
+            };
+            _context.Manufacturers.Add(m);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(m.ManufacturerId, m.ManufacturerName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateManufacturerAsync(int id, ManufacturerRequestDto request)
+        {
+            var m = await _context.Manufacturers.FindAsync(id);
+            if (m == null) return null;
+
+            m.ManufacturerName = request.ManufacturerName;
+            m.TDate = DateTime.UtcNow;
+            m.IsActive = request.IsActive;
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(m.ManufacturerId, m.ManufacturerName);
+        }
+
+        public async Task<bool> DeleteManufacturerAsync(int id)
+        {
+            var m = await _context.Manufacturers.FindAsync(id);
+            if (m == null) return false;
+
+            m.IsActive = false;
+            m.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- OfficeType CRUD ---
+        public async Task<DropdownResponseDto> AddOfficeTypeAsync(OfficeTypeRequestDto request)
+        {
+            var ot = new OfficeType
+            {
+                OfficeTypeName = request.OfficeTypeName,
+                PDate = DateTime.UtcNow
+            };
+            _context.OfficeTypes.Add(ot);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(ot.OfficeTypeId, ot.OfficeTypeName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateOfficeTypeAsync(int id, OfficeTypeRequestDto request)
+        {
+            var ot = await _context.OfficeTypes.FindAsync(id);
+            if (ot == null) return null;
+
+            ot.OfficeTypeName = request.OfficeTypeName;
+            ot.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(ot.OfficeTypeId, ot.OfficeTypeName);
+        }
+
+        public async Task<bool> DeleteOfficeTypeAsync(int id)
+        {
+            var ot = await _context.OfficeTypes.FindAsync(id);
+            if (ot == null) return false;
+
+            _context.OfficeTypes.Remove(ot); // Hard delete as no IsActive
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- Allocation CRUD ---
+        public async Task<DropdownResponseDto> AddAllocationAsync(AllocationRequestDto request)
+        {
+            var alloc = new Allocation
+            {
+                AllocationTypeName = request.AllocationTypeName,
+                PDate = DateTime.UtcNow
+            };
+            _context.Allocations.Add(alloc);
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(alloc.AllocationTypeId, alloc.AllocationTypeName);
+        }
+
+        public async Task<DropdownResponseDto?> UpdateAllocationAsync(int id, AllocationRequestDto request)
+        {
+            var alloc = await _context.Allocations.FindAsync(id);
+            if (alloc == null) return null;
+
+            alloc.AllocationTypeName = request.AllocationTypeName;
+            alloc.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return new DropdownResponseDto(alloc.AllocationTypeId, alloc.AllocationTypeName);
+        }
+
+        public async Task<bool> DeleteAllocationAsync(int id)
+        {
+            var alloc = await _context.Allocations.FindAsync(id);
+            if (alloc == null) return false;
+
+            _context.Allocations.Remove(alloc); // Hard delete
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        // --- Department CRUD ---
+        public async Task<DepartmentResponseDto> AddDepartmentAsync(CreateDepartmentDto request)
+        {
+            var dept = new Department
+            {
+                DeptName = request.DepartmentName,
+                DeptAbbre = request.DepartmentCode,
+                Enabled = request.Enabled,
+                PDate = DateTime.UtcNow
+            };
+            _context.Departments.Add(dept);
+            await _context.SaveChangesAsync();
+            return new DepartmentResponseDto(dept.DeptId, dept.DeptName, dept.DeptAbbre, dept.Enabled, dept.PDate, dept.TDate);
+        }
+
+        public async Task<DepartmentResponseDto?> UpdateDepartmentAsync(int id, UpdateDepartmentDto request)
+        {
+            var dept = await _context.Departments.FindAsync(id);
+            if (dept == null) return null;
+
+            dept.DeptName = request.DepartmentName;
+            dept.DeptAbbre = request.DepartmentCode;
+            dept.Enabled = request.Enabled;
+            dept.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            
+            return new DepartmentResponseDto(dept.DeptId, dept.DeptName, dept.DeptAbbre, dept.Enabled, dept.PDate, dept.TDate);
+        }
+
+        public async Task<bool> DeleteDepartmentAsync(int id)
+        {
+            var dept = await _context.Departments.FindAsync(id);
+            if (dept == null) return false;
+
+            dept.Enabled = false; // Soft delete
+            dept.TDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         // Models
         public async Task<VehicleModelResponseDto> AddVehicleModelAsync(VehicleModelRequestDto request)
         {
@@ -822,6 +1091,59 @@ namespace backend.Services
             return await _context.InventoryItems
                 .Where(i => i.IsActive)
                 .Select(i => new InventoryDropdownDto(i.InventoryItemId, i.Name, i.IsModelRequired)).ToListAsync();
+        }
+
+
+        // StoreItems (InventoryItem)
+        public async Task<List<StoreItemResponseDto>> GetAllStoreItemsAsync()
+        {
+            return await _context.InventoryItems.Select(i => new StoreItemResponseDto(i.InventoryItemId, i.Name, i.Category, i.Description, i.IsModelRequired, i.IsActive, i.CreatedAt)).ToListAsync();
+        }
+
+        public async Task<StoreItemResponseDto?> GetStoreItemByIdAsync(int id)
+        {
+            return await _context.InventoryItems.Where(i => i.InventoryItemId == id).Select(i => new StoreItemResponseDto(i.InventoryItemId, i.Name, i.Category, i.Description, i.IsModelRequired, i.IsActive, i.CreatedAt)).FirstOrDefaultAsync();
+        }
+
+        public async Task<StoreItemResponseDto> AddStoreItemAsync(StoreItemRequestDto request)
+        {
+            var entity = new InventoryItem
+            {
+                Name = request.Name,
+                Category = request.Category,
+                Description = request.Description,
+                IsModelRequired = request.IsModelRequired,
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.InventoryItems.Add(entity);
+            await _context.SaveChangesAsync();
+            return await GetStoreItemByIdAsync(entity.InventoryItemId) ?? throw new Exception("Error saving StoreItem");
+        }
+
+        public async Task<StoreItemResponseDto?> UpdateStoreItemAsync(int id, StoreItemRequestDto request)
+        {
+            var entity = await _context.InventoryItems.FindAsync(id);
+            if (entity == null) return null;
+
+            entity.Name = request.Name;
+            entity.Category = request.Category;
+            entity.Description = request.Description;
+            entity.IsModelRequired = request.IsModelRequired;
+            entity.IsActive = request.IsActive;
+
+            await _context.SaveChangesAsync();
+            return await GetStoreItemByIdAsync(id);
+        }
+
+        public async Task<bool> DeleteStoreItemAsync(int id)
+        {
+            var entity = await _context.InventoryItems.FindAsync(id);
+            if (entity == null) return false;
+
+            _context.InventoryItems.Remove(entity);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

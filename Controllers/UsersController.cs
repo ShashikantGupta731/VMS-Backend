@@ -13,10 +13,12 @@ namespace backend.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly AppDbContext _context;
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, AppDbContext context)
         {
             _userService = userService;
+            _context = context;
         }
         
         [HttpGet]
@@ -93,6 +95,59 @@ namespace backend.Controllers
             var result = await _userService.ToggleUserStatusAsync(id);
             if (!result) return NotFound();
             return Ok(new { success = true, message = "User status updated" });
+        }
+        [Authorize(Roles = "ADMN")]
+        [HttpGet("activity-logs")]
+        public async Task<ActionResult> GetActivityLogs([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var query = _context.UserActivityLogs.AsQueryable();
+
+            if (fromDate.HasValue)
+            {
+                var utcFrom = DateTime.SpecifyKind(fromDate.Value.Date, DateTimeKind.Utc);
+                query = query.Where(x => x.CreatedOn >= utcFrom);
+            }
+            
+            if (toDate.HasValue)
+            {
+                var utcTo = DateTime.SpecifyKind(toDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(x => x.CreatedOn <= utcTo);
+            }
+
+            var totalCount = await query.CountAsync();
+            var logs = await query.OrderByDescending(x => x.CreatedOn)
+                                  .Skip((page - 1) * pageSize)
+                                  .Take(pageSize)
+                                  .ToListAsync();
+
+            return Ok(new { data = logs, totalCount, page, pageSize });
+        }
+
+        [Authorize(Roles = "ADMN")]
+        [HttpGet("error-logs")]
+        public async Task<ActionResult> GetErrorLogs([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var query = _context.ErrorLogs.AsQueryable();
+
+            if (fromDate.HasValue)
+            {
+                var utcFrom = DateTime.SpecifyKind(fromDate.Value.Date, DateTimeKind.Utc);
+                query = query.Where(x => x.ErrDate >= utcFrom);
+            }
+            
+            if (toDate.HasValue)
+            {
+                var utcTo = DateTime.SpecifyKind(toDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(x => x.ErrDate <= utcTo);
+            }
+
+            var totalCount = await query.CountAsync();
+            var logs = await query.OrderByDescending(x => x.ErrDate)
+                                  .Skip((page - 1) * pageSize)
+                                  .Take(pageSize)
+                                  .ToListAsync();
+
+            return Ok(new { data = logs, totalCount, page, pageSize });
         }
     }
 }

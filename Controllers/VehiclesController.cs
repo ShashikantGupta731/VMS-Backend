@@ -24,6 +24,12 @@ namespace backend.Controllers
             return Ok(await _vehicleService.GetAllVehiclesAsync(status));
         }
 
+        [HttpGet("by-ddo/{ddoCode}")]
+        public async Task<ActionResult<List<VehicleResponseDto>>> GetVehiclesByDdo(string ddoCode)
+        {
+            return Ok(await _vehicleService.GetVehiclesByDdoAsync(ddoCode));
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<VehicleResponseDto>> GetVehicleById(int id)
         {
@@ -90,13 +96,49 @@ namespace backend.Controllers
             return result ? Ok(new { message = "Vehicle transferred successfully" }) : BadRequest(new { message = "Transfer failed" });
         }
 
-        [HttpPost("condemn")]
-        [Authorize(Roles = "DDO")]
-        public async Task<IActionResult> CondemnVehicle([FromForm] CondemnVehicleDto dto)
+        [HttpPost("register-replacement")]
+        [Authorize(Roles = "DDO,ADMN")]
+        public async Task<IActionResult> RegisterReplacementVehicle([FromForm] RegisterReplacementVehicleDto dto)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            var result = await _vehicleService.CondemnVehicleAsync(dto, userId);
-            return result ? Ok(new { message = "Vehicle condemned successfully" }) : BadRequest(new { message = "Condemn failed" });
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var result = await _vehicleService.RegisterReplacementVehicleAsync(dto, userId);
+            return result ? Ok(new { success = true, message = "Replacement vehicle registered successfully" }) : BadRequest(new { success = false, message = "Failed to register replacement vehicle" });
+        }
+
+        [HttpPost("mark-for-condemned")]
+        [Authorize(Roles = "DDO,ADMN,FD")]
+        public async Task<IActionResult> MarkForCondemned([FromBody] MarkForCondemnedDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var result = await _vehicleService.MarkForCondemnedAsync(dto, userId);
+            return result ? Ok(new { success = true, message = "Vehicle marked for condemned successfully" }) : BadRequest(new { success = false, message = "Failed to mark vehicle" });
+        }
+
+        [HttpPost("reject-condemnation")]
+        [Authorize(Roles = "FD")]
+        public async Task<IActionResult> RejectCondemnation([FromBody] RejectCondemnationDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var success = await _vehicleService.RejectCondemnationAsync(dto.VehicleNumber, dto.Reason, userId);
+            if (!success) return BadRequest(new { message = "Failed to reject condemnation request." });
+            return Ok(new { message = "Condemnation request rejected successfully." });
+        }
+
+        [HttpPost("add-grn-details")]
+        [Authorize(Roles = "DDO,ADMN")]
+        public async Task<IActionResult> AddVehicleGrnNumberAndDetails([FromForm] VehicleGrnDetailsDto dto)
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out int userId)) return Unauthorized();
+
+            var result = await _vehicleService.AddVehicleGrnNumberAndDetailsAsync(dto, userId);
+            return result ? Ok(new { success = true, message = "GRN details added successfully" }) : BadRequest(new { success = false, message = "Failed to add GRN details" });
         }
 
         [HttpGet("{id}/fitness-certificates")]

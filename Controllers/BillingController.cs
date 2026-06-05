@@ -243,12 +243,54 @@ namespace backend.Controllers
             return Ok(new { success = true, result });
         }
 
+        [HttpGet("claims/pending-integration")]
+        [Authorize(Roles = "DDO")]
+        public async Task<IActionResult> GetPendingIntegrationClaims()
+        {
+            var result = await _billingService.GetPendingIntegrationClaimsAsync(GetUserId(), GetUserRole());
+            return Ok(new { success = true, result });
+        }
+
         [HttpGet("claims/{id}")]
         public async Task<IActionResult> GetClaimById(int id)
         {
             var result = await _billingService.GetClaimByIdAsync(id);
-            if (result == null) return NotFound(new { success = false, msg = "Claim not found" });
+            if (result == null) return NotFound(new { success = false, message = "Claim not found" });
             return Ok(new { success = true, result });
+        }
+
+        [HttpGet("claims/by-number/{claimNumber}")]
+        public async Task<IActionResult> GetClaimByNumber(string claimNumber)
+        {
+            var result = await _billingService.GetClaimByNumberAsync(claimNumber);
+            if (result == null) return NotFound(new { success = false, message = "Claim not found" });
+            return Ok(new { success = true, result });
+        }
+
+        [HttpGet("bills/search")]
+        [Authorize(Roles = "ADMN")]
+        public async Task<IActionResult> SearchBillById([FromQuery] int id)
+        {
+            var result = await _billingService.SearchBillByIdAsync(id);
+            return Ok(new { success = true, result });
+        }
+
+        [HttpPut("fuel-bills/{id}/odometer")]
+        [Authorize(Roles = "ADMN")]
+        public async Task<IActionResult> UpdateFuelBillOdometer(int id, [FromBody] UpdateOdometerDto dto)
+        {
+            var result = await _billingService.UpdateFuelBillOdometerAsync(id, dto);
+            if (!result) return NotFound(new { success = false, message = "Fuel bill not found." });
+            return Ok(new { success = true });
+        }
+
+        [HttpPut("maintenance-bills/{id}/odometer")]
+        [Authorize(Roles = "ADMN")]
+        public async Task<IActionResult> UpdateMaintenanceBillOdometer(int id, [FromBody] UpdateOdometerDto dto)
+        {
+            var result = await _billingService.UpdateMaintenanceBillOdometerAsync(id, dto);
+            if (!result) return NotFound(new { success = false, message = "Maintenance bill not found." });
+            return Ok(new { success = true });
         }
 
         [HttpPost("claims/{id}/verify")]
@@ -264,6 +306,22 @@ namespace backend.Controllers
         public async Task<IActionResult> RejectClaim(int id, [FromBody] string comments)
         {
             var result = await _billingService.RejectClaimAsync(id, GetUserId(), comments);
+            return Ok(new { success = result });
+        }
+
+        [HttpPost("claims/{id}/discard")]
+        [Authorize(Roles = "DDO")]
+        public async Task<IActionResult> DiscardClaim(int id, [FromBody] string? comments)
+        {
+            var result = await _billingService.DiscardClaimAsync(id, GetUserId(), comments);
+            return Ok(new { success = result });
+        }
+
+        [HttpPost("claims/{id}/restore")]
+        [Authorize(Roles = "DDO")]
+        public async Task<IActionResult> RestoreClaim(int id, [FromBody] string? comments)
+        {
+            var result = await _billingService.RestoreClaimAsync(id, GetUserId(), comments);
             return Ok(new { success = result });
         }
 

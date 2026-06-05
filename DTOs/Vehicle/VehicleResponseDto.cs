@@ -11,6 +11,8 @@ namespace backend.DTOs
         public string OtherPurchaseTypeDetails { get; set; } = string.Empty;
         public int? NewFleetStrength { get; set; }
         public string FleetStrengthLetter { get; set; } = string.Empty;
+        public string CondemnationReplacementRegNo { get; set; } = string.Empty;
+        public string CondemnationReplacementChassisNo { get; set; } = string.Empty;
         public string CondemnedVehicleRegNo { get; set; } = string.Empty;
         public string CondemnedVehicleChassisNo { get; set; } = string.Empty;
         public string VehicleSource { get; set; } = string.Empty;

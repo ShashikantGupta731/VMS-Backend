@@ -25,6 +25,9 @@ namespace backend.Services
 
         public async Task<VehicleResponseDto> CreateVehicleAsync(CreateVehicleDto dto, int userId)
         {
+            var user = await _context.Users.FindAsync(userId);
+            var ddoCode = user?.DDOCode ?? string.Empty;
+
             var vehicle = new VehicleInfo
             {
                 VehicleNumber = dto.VehicleNumber,
@@ -52,7 +55,7 @@ namespace backend.Services
                 DriverContactNo = dto.DriverContactNo ?? string.Empty,
                 ContractorName = dto.ContractorName ?? string.Empty,
                 ContractorContactNo = dto.ContractorContactNo ?? string.Empty,
-                DDOId = string.Empty,
+                DDOId = ddoCode,
                 CreatedBy = userId.ToString(),
                 UpdatedDate = null,
                 IsActive = true,
@@ -188,6 +191,16 @@ namespace backend.Services
             vehicle.Comments = comments;
             vehicle.VerificationDate = DateTime.UtcNow;
 
+            // If DDOId is empty (legacy issue), attempt to populate it from the creator's DDO Code
+            if (string.IsNullOrEmpty(vehicle.DDOId) && int.TryParse(vehicle.CreatedBy, out int creatorId))
+            {
+                var creator = await _context.Users.FindAsync(creatorId);
+                if (creator != null && !string.IsNullOrEmpty(creator.DDOCode))
+                {
+                    vehicle.DDOId = creator.DDOCode;
+                }
+            }
+
             await _context.SaveChangesAsync();
             return true;
         }
@@ -243,38 +256,134 @@ namespace backend.Services
             return true;
         }
 
-        public async Task<bool> CondemnVehicleAsync(CondemnVehicleDto dto, int userId)
+        public async Task<bool> RegisterReplacementVehicleAsync(RegisterReplacementVehicleDto dto, int userId)
         {
-            var vehicle = await _context.Vehicles.FindAsync(dto.VehicleId);
-            if (vehicle == null) return false;
+            var searchRegNo = dto.CondemnedVehicleRegNo?.Trim().ToUpper();
+            var condemnedVehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleNumber.ToUpper() == searchRegNo);
+            if (condemnedVehicle == null) return false;
 
-            // 1. Update Vehicle Status
-            vehicle.CurrentStatus = "CONDEMNED";
-            vehicle.UpdatedDate = DateTime.UtcNow;
-
-            // 2. Save Condemnation Order File
-            string orderPath = "";
-            if (dto.CondemnationOrderFile != null)
+            // Wait, we need to create the replacement vehicle first or link it. 
+            // In our system, the replacement vehicle is just registered via a string NewVehicleRegNo?
+            // Yes, let's just create a VehicleCondemnation record with the FD approval doc.
+            
+            string fdDocPath = "";
+            if (dto.FdApprovalDoc != null)
             {
-                orderPath = await _fileService.SaveFileAsync(dto.CondemnationOrderFile, "vehicles/condemnation") ?? "";
+                fdDocPath = await _fileService.SaveFileAsync(dto.FdApprovalDoc, "vehicles/condemnation/fdapproval") ?? "";
             }
 
-            // 3. Create Condemnation Record
             var condemnation = new VehicleCondemnation
             {
-                VehicleId = dto.VehicleId,
-                CondemnationDate = dto.CondemnationDate,
-                CondemnationOrderNumber = dto.CondemnationOrderNumber,
-                CondemnationOrderPath = orderPath,
-                Reason = dto.Reason,
-                AuctionStatus = dto.AuctionStatus ?? "Pending",
-                AuctionDate = dto.AuctionDate,
-                AuctionAmount = dto.AuctionAmount,
+                VehicleId = condemnedVehicle.VehicleInfoId,
+                ReplacementVehicleRegNo = dto.NewVehicleRegNo ?? "",
+                ReplacementVehicleChassisNo = dto.NewVehicleChassisNo ?? "",
+                FdApprovalDocPath = fdDocPath ?? "",
+                IsReplacementRegistered = true,
+                CondemnationDate = DateTime.UtcNow,
+                CondemnationOrderNumber = "N/A",
+                Reason = "Register Replacement Vehicle",
+                AuctionStatus = "Pending",
+                CondemnationOrderPath = "",
+                GRNNumber = "",
+                GrnDocumentPath = "",
+                CreatedDate = DateTime.UtcNow,
+                CreatedBy = userId
+            };
+
+            _context.VehicleCondemnations.Add(condemnation);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> MarkForCondemnedAsync(MarkForCondemnedDto dto, int userId)
+        {
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleNumber == dto.VehicleNumber);
+            if (vehicle == null) return false;
+
+            // Update Vehicle Status
+            vehicle.CurrentStatus = "Marked for Condemned by FD";
+            vehicle.UpdatedDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> RejectCondemnationAsync(string vehicleNumber, string reason, int userId)
+        {
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleNumber == vehicleNumber);
+            if (vehicle == null) return false;
+
+            // Find the pending condemnation record
+            var condemnation = await _context.VehicleCondemnations
+                .Where(c => c.VehicleId == vehicle.VehicleInfoId && c.IsReplacementRegistered)
+                .OrderByDescending(c => c.CreatedDate)
+                .FirstOrDefaultAsync();
+
+            if (condemnation != null)
+            {
+                // Delete the pending request so DDO can try again
+                _context.VehicleCondemnations.Remove(condemnation);
+                
+                // Optionally log the reason or notify DDO (left out of scope for now)
+                
+                await _context.SaveChangesAsync();
+                return true;
+            }
+
+            return false;
+        }
+
+        public async Task<bool> AddVehicleGrnNumberAndDetailsAsync(VehicleGrnDetailsDto dto, int userId)
+        {
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.VehicleNumber == dto.OldVehicleNumber);
+            if (vehicle == null) return false;
+
+            // Only allow if marked for condemned or already condemned (for multiple GRN deposits)
+            if (vehicle.CurrentStatus != "Marked for Condemned by FD" && vehicle.CurrentStatus != "CONDEMNED") return false;
+
+            string grnDocPath = "";
+            if (dto.IsOldGrn && dto.GrnDoc != null)
+            {
+                grnDocPath = await _fileService.SaveFileAsync(dto.GrnDoc, "vehicles/condemnation/grn") ?? "";
+            }
+
+            var condemnation = new VehicleCondemnation
+            {
+                VehicleId = vehicle.VehicleInfoId,
+                CondemnationDate = DateTime.UtcNow,
+                CondemnationOrderNumber = "N/A", // From legacy, this is not provided here
+                Reason = "Condemned via GRN Deposit",
+                GRNNumber = dto.GRNNumber,
+                GRNDate = dto.GRNDate.HasValue ? ToUtc(dto.GRNDate) : null,
+                GRNBillAmount = dto.GRNBillAmount,
+                IsOldGrn = dto.IsOldGrn,
+                GrnDocumentPath = grnDocPath,
+                ReplacementVehicleId = dto.ReplacementVehicleId,
+                HaveEnteredAllGRNsFullAmount = dto.HaveYouEnteredAllGRNsFullAmount,
+                AuctionAmount = dto.AmountForSelectedVehicle, // Map amount for selected vehicle to AuctionAmount
                 CreatedBy = userId,
                 CreatedDate = DateTime.UtcNow
             };
 
             _context.VehicleCondemnations.Add(condemnation);
+
+            if (dto.HaveYouEnteredAllGRNsFullAmount)
+            {
+                vehicle.CurrentStatus = "CONDEMNED";
+                vehicle.UpdatedDate = DateTime.UtcNow;
+            }
+
+            // Link Replacement Vehicle
+            if (dto.ReplacementVehicleId.HasValue && dto.ReplacementVehicleId.Value > 0)
+            {
+                var newVehicle = await _context.Vehicles.FindAsync(dto.ReplacementVehicleId.Value);
+                if (newVehicle != null)
+                {
+                    // Optionally set a field indicating it's a replacement
+                    // legacy DB had 'regnewagainstexistvehiclerefid'
+                }
+            }
+
             await _context.SaveChangesAsync();
             return true;
         }
@@ -459,7 +568,12 @@ namespace backend.Services
                 .Include(v => v.Model)
                 .Include(v => v.VehicleType)
                 .Include(v => v.Office)
-                .Where(v => v.IsActive && v.DDOId == ddoCode && v.verificationstatus == 1)
+                .Include(v => v.VehicleCondemnations)
+                .Where(v => v.IsActive && 
+                            (v.DDOId == ddoCode || 
+                             (v.DDOId == "" && _context.Users.Any(u => u.UserId.ToString() == v.CreatedBy && u.DDOCode == ddoCode))
+                            ) && 
+                            v.verificationstatus == 1)
                 .ToListAsync();
 
             return vehicles.Select(MapToResponseDto).ToList();
@@ -467,6 +581,8 @@ namespace backend.Services
 
         private VehicleResponseDto MapToResponseDto(VehicleInfo v)
         {
+            var latestCondemnation = v.VehicleCondemnations?.OrderByDescending(c => c.CreatedDate).FirstOrDefault();
+
             return new VehicleResponseDto
             {
                 Id = v.VehicleInfoId,
@@ -478,7 +594,9 @@ namespace backend.Services
                 DdoCode = v.DDOId,
                 VehiclePhoto = v.VehiclePhotoPath,
                 RegistrationCertificate = v.RegistrationCertificatePath,
-                FdApproval = v.FdApprovalPath,
+                FdApproval = latestCondemnation != null ? latestCondemnation.FdApprovalDocPath : v.FdApprovalPath,
+                CondemnationReplacementRegNo = latestCondemnation != null ? latestCondemnation.ReplacementVehicleRegNo : string.Empty,
+                CondemnationReplacementChassisNo = latestCondemnation != null ? latestCondemnation.ReplacementVehicleChassisNo : string.Empty,
                 FleetStrengthLetter = v.FleetStrengthLetterPath,
                 OfficeName = v.Office?.OfficeName ?? string.Empty,
                 OfficeAddress = v.Office?.OfficeAddress ?? string.Empty,

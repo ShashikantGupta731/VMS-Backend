@@ -117,6 +117,9 @@ namespace backend.Models.Core
         // Navigation property for historical NOCs
         public virtual ICollection<VehicleNOCDetail> VehicleNOCDetails { get; set; } = new List<VehicleNOCDetail>();
         
+        // Navigation property for Condemnations
+        public virtual ICollection<VehicleCondemnation> VehicleCondemnations { get; set; } = new List<VehicleCondemnation>();
+        
         public string NodalOfficerName { get; set; } = string.Empty;
         public string NodalOfficerMobileNo { get; set; } = string.Empty;
         public string NodalOfficerUsername { get; set; } = string.Empty;

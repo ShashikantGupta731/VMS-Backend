@@ -21,6 +21,7 @@ namespace backend.Data
         public DbSet<HiredVehicleBill> HiredVehicleBills { get; set; }
         public DbSet<ContractualBill> ContractualBills { get; set; }
         public DbSet<MiscellaneousBill> MiscellaneousBills { get; set; }
+        public DbSet<TripDetail> TripDetails { get; set; }
 
         // --- Inventory Tables ---
         public DbSet<InventoryItem> InventoryItems { get; set; }
@@ -48,6 +49,10 @@ namespace backend.Data
         public DbSet<FuelMaintenance> FuelMaintenances { get; set; }
         public DbSet<PersonalUsagePlan> PersonalUsagePlans { get; set; }
         public DbSet<PersonalUsageLog> PersonalUsageLogs { get; set; }
+
+        // Auditing
+        public DbSet<UserActivityLog> UserActivityLogs { get; set; }
+        public DbSet<ErrorLog> ErrorLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -882,8 +887,14 @@ namespace backend.Data
             modelBuilder.Entity<FuelEntry>()
                 .Property(fe => fe.OdometerReading)
                 .HasColumnName("OdometerReading");
-
-            
+                
+            modelBuilder.Entity<FuelEntry>()
+                .Property(fe => fe.FuelConsumptionLitres)
+                .HasColumnName("FuelConsumptionLitres");
+                
+            modelBuilder.Entity<FuelEntry>()
+                .Property(fe => fe.FuelConsumptionCost)
+                .HasColumnName("FuelConsumptionCost");
             modelBuilder.Entity<FuelEntry>()
                 .Property(fe => fe.Permission)
                 .HasColumnName("Permission");
