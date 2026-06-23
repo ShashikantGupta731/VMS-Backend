@@ -36,9 +36,11 @@ namespace backend.Data
         public DbSet<Designation> Designations { get; set; }
         public DbSet<Manufacturer> Manufacturers { get; set; }
         public DbSet<VehicleModel> VehicleModels { get; set; }
+        public DbSet<PetrolPump> PetrolPumps { get; set; }
         public DbSet<VehicleType> VehicleTypes { get; set; }
         public DbSet<OfficeType> OfficeTypes { get; set; }
         public DbSet<Allocation> Allocations { get; set; }
+        public DbSet<Secretary> Secretaries { get; set; }
         public DbSet<FleetStrength> FleetStrengths { get; set; }
         public DbSet<Officer> Officers { get; set; }
         public DbSet<Project> Projects { get; set; }
@@ -53,6 +55,9 @@ namespace backend.Data
         // Auditing
         public DbSet<UserActivityLog> UserActivityLogs { get; set; }
         public DbSet<ErrorLog> ErrorLogs { get; set; }
+        public DbSet<GuestAccessLog> GuestAccessLogs { get; set; }
+        public DbSet<PasswordHistory> PasswordHistories { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -560,6 +565,37 @@ namespace backend.Data
                 .Property(v => v.FuelConsumptionCostDate)
                 .HasColumnName("FuelConsumptionCostDate");
 
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.FuelConsumptionCost)
+                .HasColumnName("FuelConsumptionCost");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.FuelConsumptionLitres)
+                .HasColumnName("FuelConsumptionLitres");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.LastThreeYearsMaintenanceCost)
+                .HasColumnName("LastThreeYearsMaintenanceCost");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.VehicleCost)
+                .HasColumnName("VehicleCost");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.VehiclePurchaseType)
+                .HasColumnName("VehiclePurchaseType");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.OtherPurchaseTypeDetails)
+                .HasColumnName("OtherPurchaseTypeDetails");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.NewFleetStrength)
+                .HasColumnName("NewFleetStrength");
+
+            modelBuilder.Entity<VehicleInfo>()
+                .Property(v => v.VehicleSource)
+                .HasColumnName("VehicleSource");
             
             modelBuilder.Entity<VehicleInfo>()
                 .Property(v => v.LastThreeYearsMaintenanceCostDate)
@@ -1214,6 +1250,13 @@ namespace backend.Data
             modelBuilder.Entity<VehicleCondemnation>()
                 .Property(vc => vc.VehicleCondemnationId)
                 .HasColumnName("VehicleCondemnationId");
+            // Configure PasswordHistory relationship
+            modelBuilder.Entity<PasswordHistory>()
+                .HasOne(ph => ph.User)
+                .WithMany(u => u.PasswordHistories)
+                .HasForeignKey(ph => ph.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
     }
 }

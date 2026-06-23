@@ -10,6 +10,7 @@ namespace backend.Services
         Task<VehicleResponseDto?> GetVehicleByIdAsync(int id);
         Task<List<VehicleResponseDto>> GetVehiclesByDdoAsync(string ddoCode);
         Task<VehicleResponseDto?> UpdateVehicleAsync(int id, UpdateVehicleDto dto);
+        Task<bool> UpdateDriverDetailsAsync(int id, UpdateDriverDetailsDto dto);
         Task<bool> DeleteVehicleAsync(int id);
         Task<bool> VerifyVehicleAsync(int id, string verifierId, string comments, int status);
         Task<bool> TransferVehicleAsync(TransferVehicleDto dto, int userId);

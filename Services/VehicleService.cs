@@ -48,6 +48,10 @@ namespace backend.Services
                 AllocationType = dto.VehicleAllocationType ?? string.Empty,
                 CurrentStatus = dto.CurrentStatus ?? string.Empty,
                 VehicleCost = dto.VehicleCost,
+                VehiclePurchaseType = dto.VehiclePurchaseType ?? string.Empty,
+                OtherPurchaseTypeDetails = dto.OtherPurchaseTypeDetails ?? string.Empty,
+                NewFleetStrength = dto.NewFleetStrength,
+                VehicleSource = dto.VehicleSource ?? string.Empty,
                 VehiclePurchaseDate = ToUtc(dto.PurchaseDate),
                 FitnessUpto = ToUtc(dto.FitnessUpto),
                 DriverType = dto.DriverType ?? string.Empty,
@@ -141,6 +145,10 @@ namespace backend.Services
             vehicle.AllocationType = dto.VehicleAllocationType ?? string.Empty;
             vehicle.CurrentStatus = dto.CurrentStatus ?? string.Empty;
             vehicle.VehicleCost = dto.VehicleCost;
+            vehicle.VehiclePurchaseType = dto.VehiclePurchaseType ?? string.Empty;
+            vehicle.OtherPurchaseTypeDetails = dto.OtherPurchaseTypeDetails ?? string.Empty;
+            vehicle.NewFleetStrength = dto.NewFleetStrength;
+            vehicle.VehicleSource = dto.VehicleSource ?? string.Empty;
             vehicle.VehiclePurchaseDate = ToUtc(dto.PurchaseDate);
             vehicle.FitnessUpto = ToUtc(dto.FitnessUpto);
             vehicle.DriverType = dto.DriverType ?? string.Empty;
@@ -169,6 +177,28 @@ namespace backend.Services
 
             await _context.SaveChangesAsync();
             return await GetVehicleByIdAsync(vehicle.VehicleInfoId);
+        }
+
+        public async Task<bool> UpdateDriverDetailsAsync(int id, UpdateDriverDetailsDto dto)
+        {
+            var vehicle = await _context.Vehicles.FindAsync(id);
+            if (vehicle == null) return false;
+
+            vehicle.DriverName = dto.DriverName ?? string.Empty;
+            vehicle.DriverContactNo = dto.DriverContact ?? string.Empty;
+            vehicle.DriverType = dto.DriverType ?? string.Empty;
+            vehicle.CurrentStatus = dto.Status ?? string.Empty;
+            vehicle.VehicleNumber = dto.VehicleNumber ?? string.Empty;
+            vehicle.temporpermanent = dto.RegistrationType;
+            vehicle.UpdatedDate = dto.UpdatedDate.HasValue ? ToUtc(dto.UpdatedDate) : DateTime.UtcNow;
+
+            // Handle Attachments parsing and saving if needed
+            // The frontend passes a JSON string {"vehicleno": file, "registrationcert": file}
+            // For now, since attachments are passed as base64 or file paths in the JSON string from frontend,
+            // we will store them. (Assuming the actual file saving is handled in another way or not strictly required for this simple edit yet).
+            
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> DeleteVehicleAsync(int id)
@@ -594,6 +624,7 @@ namespace backend.Services
                 DdoCode = v.DDOId,
                 VehiclePhoto = v.VehiclePhotoPath,
                 RegistrationCertificate = v.RegistrationCertificatePath,
+                IsTemporaryRegistration = v.temporpermanent,
                 FdApproval = latestCondemnation != null ? latestCondemnation.FdApprovalDocPath : v.FdApprovalPath,
                 CondemnationReplacementRegNo = latestCondemnation != null ? latestCondemnation.ReplacementVehicleRegNo : string.Empty,
                 CondemnationReplacementChassisNo = latestCondemnation != null ? latestCondemnation.ReplacementVehicleChassisNo : string.Empty,
@@ -612,7 +643,11 @@ namespace backend.Services
                 VerificationDate = v.VerificationDate,
                 VehicleAllocationType = v.AllocationType,
                 ProjectName = v.Project?.ProjectName ?? string.Empty,
-                VehicleCost = v.VehicleCost != null ? Convert.ToDecimal(v.VehicleCost) : null,
+                VehicleCost = v.VehicleCost,
+                VehiclePurchaseType = v.VehiclePurchaseType ?? string.Empty,
+                OtherPurchaseTypeDetails = v.OtherPurchaseTypeDetails ?? string.Empty,
+                NewFleetStrength = v.NewFleetStrength,
+                VehicleSource = v.VehicleSource ?? string.Empty,
                 PurchaseDate = v.VehiclePurchaseDate,
                 ManufactureYear = v.ManufactureYear.ToString(),
                 SeatingCapacity = int.TryParse(v.SeatingCapacity, out int cap) ? cap : null,

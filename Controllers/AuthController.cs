@@ -109,6 +109,30 @@ namespace backend.Controllers
             return Ok(new { message });
         }
 
+        // POST /api/auth/change-password
+        [HttpPost("change-password")]
+        [Microsoft.AspNetCore.Authorization.Authorize] // Require user to be logged in
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            // Extract the user ID from the JWT Token claims
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return Unauthorized(new { message = "Invalid token or user ID not found." });
+            }
+
+            var (success, message) = await _authService.ChangePasswordAsync(userId, request.OldPassword, request.NewPassword);
+
+            if (!success)
+            {
+                return BadRequest(new { message });
+            }
+
+            return Ok(new { message });
+        }
+
+
         // POST /api/auth/logout
         [HttpPost("logout")]
         public IActionResult Logout()
@@ -129,4 +153,5 @@ namespace backend.Controllers
     public record GuestLoginRequest(string Name, string Phone);
     public record VerifyOtpRequest(string Phone, string Otp);
     public record ResetPasswordRequest(string Phone, string Otp, string NewPassword);
+    public record ChangePasswordRequest(string OldPassword, string NewPassword);
 }

@@ -74,5 +74,26 @@ namespace backend.Controllers
             var data = await _reportService.GetVehicleDeptWiseCountAsync(deptId);
             return Ok(data);
         }
+
+        [HttpGet("guest/transport-vehicles")]
+        [Authorize(Roles = "GUEST")]
+        public async Task<IActionResult> GetTransportVehicles()
+        {
+            // Specifically limit to Department ID 43 (Transport) as per legacy logic
+            var vehicles = await _reportService.GetTransportVehiclesAsync();
+            return Ok(vehicles); 
+        }
+
+        [HttpPost("guest/records")]
+        [Authorize(Roles = "GUEST")]
+        public async Task<IActionResult> GetPublicGuestRecords([FromBody] backend.DTOs.Reports.GuestReportRequestDto request)
+        {
+            var guestName = User.FindFirst("name")?.Value ?? "Guest";
+            var guestMobile = User.FindFirst("phone_number")?.Value ?? "Unknown";
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown IP";
+
+            var data = await _reportService.GetPublicGuestRecordsAsync(request, guestName, guestMobile, ipAddress);
+            return Ok(data);
+        }
     }
 }

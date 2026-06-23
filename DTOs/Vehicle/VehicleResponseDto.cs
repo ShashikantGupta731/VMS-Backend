@@ -51,6 +51,7 @@ namespace backend.DTOs
         
         // Registration Details
         public string RegistrationType { get; set; } = string.Empty;
+        public bool? IsTemporaryRegistration { get; set; }
         public string RegistrationNumber { get; set; } = string.Empty;
         public string ManufactureYear { get; set; } = string.Empty;
         public int? SeatingCapacity { get; set; }

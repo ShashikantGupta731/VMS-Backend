@@ -39,7 +39,7 @@ namespace backend.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "DDO")]
+        [Authorize(Roles = "DDO,ADMN")]
         public async Task<ActionResult<VehicleResponseDto>> CreateVehicle([FromForm] CreateVehicleDto dto)
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -50,12 +50,21 @@ namespace backend.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "DDO")]
+        [Authorize(Roles = "DDO,ADMN")]
         public async Task<ActionResult<VehicleResponseDto>> UpdateVehicle(int id, [FromForm] UpdateVehicleDto dto)
         {
             var vehicle = await _vehicleService.UpdateVehicleAsync(id, dto);
             if (vehicle == null) return NotFound();
             return Ok(vehicle);
+        }
+
+        [HttpPut("{id}/driver")]
+        [Authorize(Roles = "DDO,ADMN")]
+        public async Task<IActionResult> UpdateDriverDetails(int id, [FromBody] UpdateDriverDetailsDto dto)
+        {
+            var result = await _vehicleService.UpdateDriverDetailsAsync(id, dto);
+            if (!result) return NotFound();
+            return Ok(new { message = "Driver details updated successfully" });
         }
 
         [HttpDelete("{id}")]

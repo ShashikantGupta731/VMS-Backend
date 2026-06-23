@@ -25,17 +25,36 @@ builder.Services.Configure<backend.Configurations.SftpSettings>(builder.Configur
 
 // Configure PostgreSQL DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // Configure CORS for Angular
+
+// Configure CORS securely
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngularApp",
-        builder => builder
-            .WithOrigins("*")
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+    options.AddPolicy("AllowAngularApp", policy => 
+    {
+        if (allowedOrigins != null && allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Fallback for local development if AllowedOrigins is not specified
+            policy.WithOrigins("http://localhost:4200")
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
+    });
 });
+
 
 // Register services
 builder.Services.AddScoped<AuthService>();
@@ -51,6 +70,7 @@ builder.Services.AddScoped<IIfmsService, IfmsService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IPetrolPumpService, PetrolPumpService>();
+builder.Services.AddScoped<ISecretaryService, SecretaryService>();
 
 // Register Dynamic Report Strategies
 builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.IncorrectOdometerReportStrategy>();

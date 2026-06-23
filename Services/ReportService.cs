@@ -82,5 +82,50 @@ namespace backend.Services
                 .Select(g => new { Department = g.Key, TotalVehicles = g.Count() })
                 .ToListAsync<dynamic>();
         }
+
+        public async Task<IEnumerable<backend.DTOs.Reports.GuestReportResponseDto>> GetPublicGuestRecordsAsync(backend.DTOs.Reports.GuestReportRequestDto request, string guestName, string guestMobileNo, string ipAddress)
+        {
+            // Log the access
+            var accessLog = new backend.Models.Core.GuestAccessLog
+            {
+                VehicleInfoId = request.VehicleInfoId,
+                GuestName = guestName,
+                GuestMobileNo = guestMobileNo,
+                IpAddress = ipAddress,
+                DateFrom = request.DateFrom,
+                DateTo = request.DateTo,
+                CreatedOn = DateTime.UtcNow
+            };
+            
+            _context.GuestAccessLogs.Add(accessLog);
+            await _context.SaveChangesAsync();
+
+            // Query Fuel Bills for the given vehicle and date range
+            var query = _context.FuelBills
+                .Where(fb => fb.VehicleId == request.VehicleInfoId && fb.BillDate >= request.DateFrom && fb.BillDate <= request.DateTo);
+
+            var result = await query
+                .GroupBy(fb => fb.VehicleId)
+                .Select(g => new backend.DTOs.Reports.GuestReportResponseDto
+                {
+                    VehicleInfoId = g.Key,
+                    VehicleNumber = g.First().Vehicle!.VehicleNumber,
+                    TotalLitres = (int)g.Sum(fb => fb.FuelQuantity),
+                    TotalAmt = g.Sum(fb => fb.Amount).ToString(),
+                    MaxOdometer = (int)g.Max(fb => fb.OdometerReading)
+                })
+                .ToListAsync();
+
+            return result;
+        }
+
+        public async Task<IEnumerable<dynamic>> GetTransportVehiclesAsync()
+        {
+            // Department ID 43 is Transport
+            return await _context.Vehicles
+                .Where(v => v.DeptId == 43)
+                .Select(v => new { vehicleinfoid = v.VehicleInfoId, vehiclenumber = v.VehicleNumber })
+                .ToListAsync<dynamic>();
+        }
     }
 }

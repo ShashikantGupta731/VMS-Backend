@@ -197,7 +197,7 @@ namespace backend.Services
             // TODO: Integrate real SMS Gateway service (using legacy template IDs)
             Console.WriteLine($"GUEST OTP GENERATED for {phone}: {otp}"); 
             
-            return (true, null, "OTP sent successfully"); // Don't return OTP in production
+            return (true, otp, "OTP sent successfully"); // Don't return OTP in production
         }
 
         // Verify OTP and create/retrieve guest user
@@ -239,9 +239,8 @@ namespace backend.Services
                 await _context.SaveChangesAsync();
             }
 
-            // Assign default guest role (you can create a "Guest" role in the database)
-            // For now, return empty roles
-            var roles = new List<string>();
+            // Assign default guest role
+            var roles = new List<string> { "GUEST" };
 
             // Generate JWT token
             var token = _jwtService.GenerateToken(user, roles);
@@ -286,5 +285,71 @@ namespace backend.Services
 
             return (true, "Password reset successfully");
         }
+
+                // Change password
+        public async Task<(bool Success, string? Message)> ChangePasswordAsync(int userId, string oldPassword, string newPassword)
+        {
+            Console.WriteLine($"AuthService.ChangePasswordAsync: Started for UserId='{userId}'");
+
+            // 1. Find user by ID including their password history
+            var user = await _context.Users
+                .Include(u => u.PasswordHistories)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                return (false, "User not found.");
+            }
+
+            // 2. Verify Old Password
+            if (!PasswordHasher.VerifyPassword(oldPassword, user.PasswordHash))
+            {
+                return (false, "Old Password is incorrect.");
+            }
+
+            // 3. Ensure new password is not the same as the current password
+            if (PasswordHasher.VerifyPassword(newPassword, user.PasswordHash))
+            {
+                return (false, "New password cannot be the same as your current password.");
+            }
+
+            // 4. Check Password History (Policy: Cannot reuse last 5 passwords)
+            int passwordPolicyLimit = 5; 
+            var recentPasswords = user.PasswordHistories
+                                      .OrderByDescending(ph => ph.CreatedAt)
+                                      .Take(passwordPolicyLimit)
+                                      .ToList();
+
+            foreach (var history in recentPasswords)
+            {
+                if (PasswordHasher.VerifyPassword(newPassword, history.PasswordHash))
+                {
+                    return (false, $"You cannot repeat your last {passwordPolicyLimit} passwords.");
+                }
+            }
+
+            // 5. Hash the new password
+            var newPasswordHash = PasswordHasher.HashPassword(newPassword);
+
+            // 6. Update user's current password
+            user.PasswordHash = newPasswordHash;
+
+            // 7. Add to Password History
+            var newHistoryRecord = new PasswordHistory
+            {
+                UserId = user.UserId,
+                PasswordHash = newPasswordHash,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            _context.PasswordHistories.Add(newHistoryRecord);
+
+            // 8. Save changes to DB
+            await _context.SaveChangesAsync();
+
+            Console.WriteLine("AuthService.ChangePasswordAsync: Password successfully changed.");
+            return (true, "Password changed successfully.");
+        }
+
     }
 }

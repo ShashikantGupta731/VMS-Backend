@@ -67,8 +67,11 @@ namespace backend.Models.Core
         public string ContractorContactNo { get; set; } = string.Empty;
         
         // --- 5. Financial & Purchase ---
-        [NotMapped]
-        public object? VehicleCost { get; set; } // Legacy dynamic type
+        public decimal? VehicleCost { get; set; } // Purchase cost of vehicle
+        public string VehiclePurchaseType { get; set; } = string.Empty; // "Fleet Strength Increased", "Any other Purchase Type", etc.
+        public string OtherPurchaseTypeDetails { get; set; } = string.Empty;
+        public int? NewFleetStrength { get; set; }
+        public string VehicleSource { get; set; } = string.Empty;
         public DateTime? VehiclePurchaseDate { get; set; } // Legacy field name
         
         // --- 6. Vehicle Maintenance & Fitness ---
@@ -80,13 +83,10 @@ namespace backend.Models.Core
         public int? KM_30062017 { get; set; } // Historical KM reading
         
         // --- 7. Fuel & Consumption Tracking ---
-        [NotMapped]
-        public object? FuelConsumptionCost { get; set; }
-        [NotMapped]
-        public object? FuelConsumptionLitres { get; set; }
+        public decimal? FuelConsumptionCost { get; set; }
+        public decimal? FuelConsumptionLitres { get; set; }
         public DateTime FuelConsumptionCostDate { get; set; }
-        [NotMapped]
-        public object? LastThreeYearsMaintenanceCost { get; set; }
+        public decimal? LastThreeYearsMaintenanceCost { get; set; }
         public DateTime LastThreeYearsMaintenanceCostDate { get; set; }
         
         // --- 8. Documents & Proofs ---

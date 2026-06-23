@@ -36,6 +36,7 @@ namespace backend.Models.Core
         
         // Navigation property for many-to-many relationship with roles
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public ICollection<PasswordHistory> PasswordHistories { get; set; } = new List<PasswordHistory>();
     }
 }
 
