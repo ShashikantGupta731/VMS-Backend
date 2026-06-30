@@ -25,6 +25,8 @@ namespace backend.Middlewares
         {
             try
             {
+                // Enable buffering so the request body can be read multiple times (e.g., by controllers and then here)
+                context.Request.EnableBuffering();
                 await _next(context);
             }
             catch (Exception ex)
@@ -46,6 +48,24 @@ namespace backend.Middlewares
 
                 var ipAddress = context.Connection.RemoteIpAddress?.ToString();
 
+                // Read query string
+                string requestParameter = context.Request.QueryString.Value ?? "";
+                
+                // Read request body if buffering was enabled and stream is seekable
+                if (context.Request.Body.CanSeek)
+                {
+                    context.Request.Body.Seek(0, System.IO.SeekOrigin.Begin);
+                    using (var reader = new System.IO.StreamReader(context.Request.Body, System.Text.Encoding.UTF8, true, 1024, true))
+                    {
+                        var bodyText = await reader.ReadToEndAsync();
+                        if (!string.IsNullOrWhiteSpace(bodyText))
+                        {
+                            // If it's a large payload, we might want to truncate it, but let's keep it simple for now
+                            requestParameter = string.IsNullOrEmpty(requestParameter) ? bodyText : $"{requestParameter} | Body: {bodyText}";
+                        }
+                    }
+                }
+
                 using (var scope = context.RequestServices.CreateScope())
                 {
                     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -58,7 +78,7 @@ namespace backend.Middlewares
                         ErrIp = ipAddress,
                         Username = username ?? "Anonymous",
                         UserId = userId,
-                        RequestParameter = context.Request.QueryString.Value,
+                        RequestParameter = requestParameter,
                         ErrDate = DateTime.UtcNow
                     };
 

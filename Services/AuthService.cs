@@ -10,13 +10,15 @@ namespace backend.Services
         private readonly JwtService _jwtService;
         private readonly OtpService _otpService;
         private readonly IIfmsService _ifmsService;
+        private readonly ISmsService _smsService;
 
-        public AuthService(AppDbContext context, JwtService jwtService, OtpService otpService, IIfmsService ifmsService)
+        public AuthService(AppDbContext context, JwtService jwtService, OtpService otpService, IIfmsService ifmsService, ISmsService smsService)
         {
             _context = context;
             _jwtService = jwtService;
             _otpService = otpService;
             _ifmsService = ifmsService;
+            _smsService = smsService;
         }
 
         // Login user
@@ -351,5 +353,120 @@ namespace backend.Services
             return (true, "Password changed successfully.");
         }
 
+        public async Task<(bool Success, string Message)> ForgotPasswordRequestOtpAsync(string username)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            
+            // Generic message to prevent User Enumeration
+            string genericMessage = "If the username exists and is eligible, an OTP has been sent to the registered mobile number.";
+
+            if (user == null || user.IsNonTreasuryDDO || user.DDOCode != null || user.Username == "admin")
+            {
+                // DDOs or Admins are not allowed to use public reset
+                return (true, genericMessage); 
+            }
+
+            if (string.IsNullOrEmpty(user.PhoneNo))
+            {
+                return (true, genericMessage);
+            }
+
+            // Invalidate older unused OTPs for this user
+            var oldOtps = await _context.OtpRequests.Where(o => o.UserId == user.UserId && !o.IsUsed).ToListAsync();
+            foreach (var o in oldOtps) o.IsUsed = true;
+
+            // Generate secure 6-digit OTP
+            string otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+
+            // Save to DB (saving as plain text as requested by user, but including commented hash)
+            var otpRequest = new OtpRequest
+            {
+                UserId = user.UserId,
+                PhoneNo = user.PhoneNo,
+                OtpCode = otp, // plain text
+                // OtpHash = BCrypt.Net.BCrypt.HashPassword(otp),
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(5), // 5 minute validity
+                IsUsed = false
+            };
+
+            _context.OtpRequests.Add(otpRequest);
+            await _context.SaveChangesAsync();
+
+            // Send via SMS Service
+            await _smsService.SendOtpAsync(user.PhoneNo, otp);
+
+            return (true, genericMessage);
+        }
+
+        public async Task<(bool Success, string? ResetToken, string Message)> ForgotPasswordVerifyOtpAsync(string username, string otp)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return (false, null, "Invalid OTP.");
+
+            var otpRecord = await _context.OtpRequests
+                .Where(o => o.UserId == user.UserId && !o.IsUsed && o.ExpiresAt > DateTime.UtcNow)
+                .OrderByDescending(o => o.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (otpRecord == null) return (false, null, "Invalid or expired OTP.");
+
+            // Plain text check (as requested)
+            if (otpRecord.OtpCode != otp)
+            {
+                return (false, null, "Invalid OTP.");
+            }
+
+            // Hashed check (commented out as requested)
+            // if (!BCrypt.Net.BCrypt.Verify(otp, otpRecord.OtpHash))
+            // {
+            //     return (false, null, "Invalid OTP.");
+            // }
+
+            // Mark as used
+            otpRecord.IsUsed = true;
+            await _context.SaveChangesAsync();
+
+            // Issue short-lived ResetToken (JWT) so the frontend can securely hit the final reset endpoint
+            var claims = new List<System.Security.Claims.Claim>
+            {
+                new System.Security.Claims.Claim("sub", user.UserId.ToString()),
+                new System.Security.Claims.Claim("purpose", "password_reset")
+            };
+
+            var resetToken = _jwtService.GenerateToken(claims, expirationMinutes: 15);
+
+            return (true, resetToken, "OTP Verified. Proceed to reset password.");
+        }
+
+        public async Task<(bool Success, string Message)> ForgotPasswordResetAsync(string resetToken, string newPassword)
+        {
+            // Validate the ResetToken
+            var principal = _jwtService.ValidateToken(resetToken);
+            if (principal == null || !principal.HasClaim(c => c.Type == "purpose" && c.Value == "password_reset"))
+            {
+                return (false, "Invalid or expired reset token.");
+            }
+
+            var userIdClaim = principal.FindFirst("sub")?.Value;
+            if (!int.TryParse(userIdClaim, out int userId))
+            {
+                return (false, "Invalid token data.");
+            }
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return (false, "User not found.");
+
+            // Standard Password Hash & Save
+            user.PasswordHash = PasswordHasher.HashPassword(newPassword);
+            
+            // Also reset lockouts since they verified their identity via OTP
+            user.FailedAttempts = 0;
+            user.LockUntil = null;
+
+            await _context.SaveChangesAsync();
+
+            return (true, "Password has been successfully reset. You may now log in.");
+        }
     }
 }

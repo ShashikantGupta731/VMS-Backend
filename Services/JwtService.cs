@@ -63,6 +63,23 @@ namespace backend.Services
             return tokenString;
         }
 
+        // Generate JWT token with custom claims and expiration
+        public string GenerateToken(IEnumerable<Claim> claims, int expirationMinutes = 15)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: _issuer,
+                audience: _audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
+                signingCredentials: credentials
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
         // Validate JWT token and return claims principal
         public ClaimsPrincipal? ValidateToken(string token)
         {

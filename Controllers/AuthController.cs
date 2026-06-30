@@ -10,11 +10,21 @@ namespace backend.Controllers
     {
         private readonly AuthService _authService;
         private readonly ICaptchaService _captchaService;
+        private readonly IRsaKeyService _rsaKeyService;
 
-        public AuthController(AuthService authService, ICaptchaService captchaService)
+        public AuthController(AuthService authService, ICaptchaService captchaService, IRsaKeyService rsaKeyService)
         {
             _authService = authService;
             _captchaService = captchaService;
+            _rsaKeyService = rsaKeyService;
+        }
+
+        // GET /api/auth/public-key
+        [HttpGet("public-key")]
+        public IActionResult GetPublicKey()
+        {
+            var publicKey = _rsaKeyService.GetPublicKey();
+            return Ok(new { publicKey });
         }
 
         // POST /api/auth/login
@@ -144,6 +154,35 @@ namespace backend.Controllers
             
             // For now, return success - client-side handles token removal
             return Ok(new { message = "Logged out successfully" });
+        }
+
+        [HttpPost("forgot-password/request-otp")]
+        public async Task<IActionResult> ForgotPasswordRequestOtp([FromBody] ForgotPasswordRequestOtp request)
+        {
+            var (success, message) = await _authService.ForgotPasswordRequestOtpAsync(request.Username);
+            return Ok(new { message }); // Always returns Ok to prevent user enumeration
+        }
+
+        [HttpPost("forgot-password/verify-otp")]
+        public async Task<IActionResult> ForgotPasswordVerifyOtp([FromBody] ForgotPasswordVerifyOtp request)
+        {
+            var (success, token, message) = await _authService.ForgotPasswordVerifyOtpAsync(request.Username, request.Otp);
+            if (!success)
+            {
+                return BadRequest(new { message });
+            }
+            return Ok(new { token, message });
+        }
+
+        [HttpPost("forgot-password/reset")]
+        public async Task<IActionResult> ForgotPasswordReset([FromBody] ForgotPasswordReset request)
+        {
+            var (success, message) = await _authService.ForgotPasswordResetAsync(request.ResetToken, request.NewPassword);
+            if (!success)
+            {
+                return BadRequest(new { message });
+            }
+            return Ok(new { message });
         }
     }
 

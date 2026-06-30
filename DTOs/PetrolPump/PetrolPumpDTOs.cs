@@ -36,6 +36,10 @@ namespace backend.DTOs.PetrolPump
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
         public string FuelType { get; set; } = string.Empty;
+        public string DdoCode { get; set; } = string.Empty;
+        public string OfficeName { get; set; } = string.Empty;
+        public string District { get; set; } = string.Empty;
+        public string DepartmentName { get; set; } = string.Empty;
     }
 
     public class VehicleSearchDto

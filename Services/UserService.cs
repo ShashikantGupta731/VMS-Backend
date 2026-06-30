@@ -181,9 +181,15 @@ namespace backend.Services
             if (user == null) return false;
 
             user.PasswordHash = PasswordHasher.HashPassword(newPassword);
+            
+            // Modern Addition: Reset lockout counters so the user can immediately log in
+            user.FailedAttempts = 0;
+            user.LockUntil = null;
+            
             await _context.SaveChangesAsync();
             return true;
         }
+
 
         public async Task<bool> ToggleUserStatusAsync(int id)
         {

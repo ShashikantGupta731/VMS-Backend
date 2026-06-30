@@ -30,6 +30,12 @@ namespace backend.Controllers
             return Ok(await _vehicleService.GetVehiclesByDdoAsync(ddoCode));
         }
 
+        [HttpGet("by-number/{vehicleNumber}")]
+        public async Task<ActionResult<List<VehicleResponseDto>>> GetVehiclesByNumber(string vehicleNumber)
+        {
+            return Ok(await _vehicleService.GetVehiclesByNumberAsync(vehicleNumber));
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<VehicleResponseDto>> GetVehicleById(int id)
         {

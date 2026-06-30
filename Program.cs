@@ -46,8 +46,8 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            // Fallback for local development if AllowedOrigins is not specified
-            policy.WithOrigins("http://localhost:4200")
+            // Fallback to allow any origin (Localhost, Dev Server, Staging) dynamically
+            policy.SetIsOriginAllowed(origin => true)
                   .AllowAnyMethod()
                   .AllowAnyHeader()
                   .AllowCredentials();
@@ -57,7 +57,9 @@ builder.Services.AddCors(options =>
 
 
 // Register services
+builder.Services.AddSingleton<IRsaKeyService, RsaKeyService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<OtpService>();
 builder.Services.AddScoped<ICaptchaService, CaptchaService>();
@@ -71,6 +73,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IPetrolPumpService, PetrolPumpService>();
 builder.Services.AddScoped<ISecretaryService, SecretaryService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Register Dynamic Report Strategies
 builder.Services.AddScoped<backend.Services.Reports.IReportStrategy, backend.Services.Reports.IncorrectOdometerReportStrategy>();
@@ -147,6 +150,8 @@ using (var scope = app.Services.CreateScope())
 
 // Configure the HTTP request pipeline.
 app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseCors("AllowAngularApp");
+app.UseMiddleware<CryptoMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -155,7 +160,6 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-app.UseCors("AllowAngularApp");
 app.UseStaticFiles(); // Serve static files
 app.UseAuthentication();
 app.UseMiddleware<ActivityLoggingMiddleware>();

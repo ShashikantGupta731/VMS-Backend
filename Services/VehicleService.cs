@@ -609,6 +609,25 @@ namespace backend.Services
             return vehicles.Select(MapToResponseDto).ToList();
         }
 
+        public async Task<List<VehicleResponseDto>> GetVehiclesByNumberAsync(string vehicleNumber)
+        {
+            var vehicles = await _context.Vehicles
+                .Include(v => v.Manufacturer)
+                .Include(v => v.Model)
+                .Include(v => v.VehicleType)
+                .Include(v => v.Office)
+                    .ThenInclude(o => o.District)
+                .Include(v => v.Office)
+                    .ThenInclude(o => o.Tehsil)
+                .Include(v => v.Designation)
+                .Include(v => v.Department)
+                .Include(v => v.VehicleCondemnations)
+                .Where(v => v.IsActive && v.VehicleNumber == vehicleNumber && v.verificationstatus == 1)
+                .ToListAsync();
+
+            return vehicles.Select(MapToResponseDto).ToList();
+        }
+
         private VehicleResponseDto MapToResponseDto(VehicleInfo v)
         {
             var latestCondemnation = v.VehicleCondemnations?.OrderByDescending(c => c.CreatedDate).FirstOrDefault();

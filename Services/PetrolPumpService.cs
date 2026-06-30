@@ -45,7 +45,11 @@ namespace backend.Services
                     Litres = f.FuelConsumptionLitres ?? 0m,
                     Amount = f.FuelConsumptionCost ?? 0m,
                     Date = f.BillDate,
-                    FuelType = "Petrol" // Legacy default, would need proper mapping if stored
+                    FuelType = "Petrol", // Legacy default, would need proper mapping if stored
+                    DdoCode = f.Vehicle.DDOId ?? "N/A",
+                    OfficeName = f.Vehicle.Office != null ? f.Vehicle.Office.OfficeName : "N/A",
+                    District = f.Vehicle.Office != null && f.Vehicle.Office.District != null ? f.Vehicle.Office.District.DistrictName : "N/A",
+                    DepartmentName = f.Vehicle.Department != null ? f.Vehicle.Department.DeptName : "N/A"
                 })
                 .ToListAsync();
 

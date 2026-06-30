@@ -57,8 +57,7 @@ namespace backend.Data
         public DbSet<ErrorLog> ErrorLogs { get; set; }
         public DbSet<GuestAccessLog> GuestAccessLogs { get; set; }
         public DbSet<PasswordHistory> PasswordHistories { get; set; }
-
-
+        public DbSet<OtpRequest> OtpRequests { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

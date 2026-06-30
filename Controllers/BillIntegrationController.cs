@@ -20,12 +20,18 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly SftpSettings _sftpSettings;
+        private readonly IConfiguration _config;
+        private readonly IIfmsService _ifmsService;
+        private readonly HttpClient _httpClient;
         private static bool _migrationExecuted = false;
 
-        public BillIntegrationController(AppDbContext context, IOptions<SftpSettings> sftpOptions)
+        public BillIntegrationController(AppDbContext context, IOptions<SftpSettings> sftpOptions, IConfiguration config, IIfmsService ifmsService, HttpClient httpClient)
         {
             _context = context;
             _sftpSettings = sftpOptions.Value;
+            _config = config;
+            _ifmsService = ifmsService;
+            _httpClient = httpClient;
         }
 
         private string GetUserRole() => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
@@ -453,6 +459,149 @@ namespace backend.Controllers
                 }
 
                 return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("GetPendingBillsFromVMS")]
+        public async Task<IActionResult> GetPendingBillsFromVMS()
+        {
+            var role = GetUserRole();
+            if (role == "DDO" || role == "ADMN")
+            {
+                var ddoCode = GetUserDdoCode();
+                var parameters = new List<NpgsqlParameter>
+                {
+                    new NpgsqlParameter("ddocode_", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = ddoCode }
+                };
+
+                try
+                {
+                    var data = await ExecuteFunctionAsync<OutGetBillsForSubmission>("\"IFMSIntegration_getPendingBillsFromVMS\"", parameters);
+                    return Ok(new { success = true, result = data });
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { success = false, msg = ex.Message });
+                }
+            }
+            return Ok(new { success = false, msg = "Unauthorized Request" });
+        }
+
+        [HttpPost("RestoreDiscardedBill")]
+        public async Task<IActionResult> RestoreDiscardedBill([FromBody] InRestoreDiscardedBill param)
+        {
+            var role = GetUserRole();
+            if (role == "DDO" || role == "ADMN")
+            {
+                var ddoCode = GetUserDdoCode();
+                var parameters = new List<NpgsqlParameter>
+                {
+                    new NpgsqlParameter("ddocode_", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = ddoCode },
+                    new NpgsqlParameter("vmsrefno_", NpgsqlTypes.NpgsqlDbType.Bigint) { Value = param.VmsRefNo },
+                    new NpgsqlParameter("fuelmaintenanceifmsid_", NpgsqlTypes.NpgsqlDbType.Integer) { Value = param.FuelMaintenanceIfmsId }
+                };
+
+                try
+                {
+                    var data = await ExecuteFunctionAsync<OutMsg>("\"RestoreDiscardedBill\"", parameters);
+                    return Ok(new { success = true, result = data });
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { success = false, msg = ex.Message });
+                }
+            }
+            return Ok(new { success = false, msg = "Unauthorized Request" });
+        }
+
+        [HttpPost("DiscardBillFromVMS")]
+        public async Task<IActionResult> DiscardBillFromVMS([FromBody] InDiscardBillFromVMS param)
+        {
+            var role = GetUserRole();
+            if (role == "DDO" || role == "ADMN")
+            {
+                var parameters = new List<NpgsqlParameter>
+                {
+                    new NpgsqlParameter("claimno_p", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = param.ClaimNo },
+                    new NpgsqlParameter("fuelmaintenanceifmsid_p", NpgsqlTypes.NpgsqlDbType.Integer) { Value = param.FuelMaintenanceIfmsid },
+                    new NpgsqlParameter("vmsrefno_p", NpgsqlTypes.NpgsqlDbType.Bigint) { Value = param.VmsRefNo }
+                };
+
+                try
+                {
+                    var data = await ExecuteFunctionAsync<OutMsg>("\"IFMSIntegration_DiscardBillFromVMS\"", parameters);
+                    return Ok(new { success = true, result = data });
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest(new { success = false, msg = ex.Message });
+                }
+            }
+            return Ok(new { success = false, msg = "Unauthorized Request" });
+        }
+
+        [HttpPost("getChallanByReceiptNo")]
+        public async Task<IActionResult> getChallanByReceiptNo([FromBody] OutUpdateIfmsBillStatus param)
+        {
+            try
+            {
+                var authKeys = _config.GetSection("BUAT01").Get<IFMS_Bank_Auth_Keys_Offline_Challan>();
+                if (authKeys == null)
+                {
+                    return BadRequest(new { success = false, msg = "BUAT01 Authentication keys not configured." });
+                }
+
+                var data = new ifms_data();
+                var obj = new IFMS_EncrDecr(authKeys.JWTKeys.ChecksumKey, authKeys.JWTKeys.SecretKey, authKeys.JWTKeys.SecretIV);
+                data.challandata = new Challandata()
+                {
+                    receiptNo = param.billno.ToString(),
+                    BankCode = "1001509",
+                    RequestDate = DateTime.Now.ToString("yyyy-MM-dd")
+                };
+
+                string json = System.Text.Json.JsonSerializer.Serialize(data.challandata);
+                data.chcksum = obj.CheckSum(json);
+                string jsonCHK = System.Text.Json.JsonSerializer.Serialize(data);
+                string encData = obj.Encrypt(jsonCHK);
+
+                var cHeader = new checkdata()
+                {
+                    encData = encData,
+                    clientId = authKeys.Header.ClientId,
+                    clientSecret = authKeys.Header.ClientSecret,
+                    transactionID = new Random().Next(100000, 999999).ToString(),
+                    ipAddress = authKeys.Header.IPAllow,
+                    integratingAgency = authKeys.Header.IntegratingAgency
+                };
+
+                string reqData = System.Text.Json.JsonSerializer.Serialize(cHeader);
+                var reqUrl = authKeys.challanUrl;
+
+                var request = new HttpRequestMessage(HttpMethod.Post, reqUrl);
+                request.Content = new StringContent(reqData, System.Text.Encoding.UTF8, "application/json");
+                
+                var resMsg = await _httpClient.SendAsync(request);
+                if (!resMsg.IsSuccessStatusCode)
+                {
+                    return BadRequest(new { success = false, msg = $"Treasury API returned status code: {resMsg.StatusCode}" });
+                }
+
+                string retJson = await resMsg.Content.ReadAsStringAsync();
+                var returnResponse = System.Text.Json.JsonSerializer.Deserialize<ReturnResponse>(retJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (returnResponse != null && returnResponse.statusCode == "SC300")
+                {
+                    string decryptedDataJson = obj.Decrypt(returnResponse.encData);
+                    var result = System.Text.Json.JsonSerializer.Deserialize<ChallanRequestResponse>(decryptedDataJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    return Ok(result);
+                }
+
+                return Ok(retJson);
             }
             catch (Exception ex)
             {
@@ -1200,5 +1349,215 @@ namespace backend.Controllers
     public class CountRefNo
     {
         public int countrefno { get; set; }
+    }
+
+    public class InDiscardBillFromVMS
+    {
+        public string ClaimNo { get; set; } = "";
+        public int FuelMaintenanceIfmsid { get; set; }
+        public Int64 VmsRefNo { get; set; }
+    }
+
+    public class InRestoreDiscardedBill
+    {
+        public Int64 VmsRefNo { get; set; }
+        public int FuelMaintenanceIfmsId { get; set; }
+    }
+
+    public class OutMsg
+    {
+        public string msg { get; set; } = "";
+    }
+
+    public class ifms_data
+    {
+        public string chcksum { get; set; } = "";
+        public Challandata challandata { get; set; } = new();
+    }
+
+    public class Challandata
+    {
+        public string receiptNo { get; set; } = "";
+        public string BankCode { get; set; } = "";
+        public string RequestDate { get; set; } = "";
+    }
+
+    public class checkdata
+    {
+        public string encData { get; set; } = "";
+        public string clientId { get; set; } = "";
+        public string clientSecret { get; set; } = "";
+        public string integratingAgency { get; set; } = "";
+        public string ipAddress { get; set; } = "";
+        public string transactionID { get; set; } = "";
+    }
+
+    public class IFMS_Bank_Auth_Keys_Offline_Challan
+    {
+        public string challanUrl { get; set; } = "";
+        public HeaderKeys Header { get; set; } = new();
+        public IFMSJWTKeys JWTKeys { get; set; } = new();
+        public BankCodes BankCodes { get; set; } = new();
+    }
+
+    public class HeaderKeys
+    {
+        public string Offline_Challan_URL { get; set; } = "";
+        public string ClientId { get; set; } = "";
+        public string ClientSecret { get; set; } = "";
+        public string IPAllow { get; set; } = "";
+        public string IntegratingAgency { get; set; } = "";
+        public string MHeadAllow { get; set; } = "";
+    }
+
+    public class IFMSJWTKeys
+    {
+        public string ChecksumKey { get; set; } = "";
+        public string SecretKey { get; set; } = "";
+        public string SecretIV { get; set; } = "";
+    }
+
+    public class BankCodes
+    {
+        public string BankCode { get; set; } = "";
+    }
+
+    public class ReturnResponse
+    {
+        public string encData { get; set; } = "";
+        public string statusCode { get; set; } = "";
+        public string msg { get; set; } = "";
+        public string integratingAgency { get; set; } = "";
+        public string BankCode { get; set; } = "";
+    }
+
+    public class ChallanRequestResponse
+    {
+        public string chcksum { get; set; } = "";
+        public ChallanData challandata { get; set; } = new();
+    }
+
+    public class ChallanData
+    {
+        public string deptRefNo { get; set; } = "";
+        public string receiptNo { get; set; } = "";
+        public string clientId { get; set; } = "";
+        public string challanDate { get; set; } = "";
+        public string expiryDate { get; set; } = "";
+        public string companyName { get; set; } = "";
+        public string deptCode { get; set; } = "";
+        public string totalAmt { get; set; } = "";
+        public string trsyAmt { get; set; } = "";
+        public string nonTrsyAmt { get; set; } = "";
+        public string noOfTrans { get; set; } = "";
+        public string ddoCode { get; set; } = "";
+        public string payLocCode { get; set; } = "";
+        public string add1 { get; set; } = "";
+        public string add2 { get; set; } = "";
+        public string add3 { get; set; } = "";
+        public string add4 { get; set; } = "";
+        public string add5 { get; set; } = "";
+        public string sURL { get; set; } = "";
+        public string fURL { get; set; } = "";
+        public List<trsyPayments>? trsyPayments { get; set; }
+        public List<nonTrsyPaymentsTrp>? nonTrsyPayments { get; set; }
+        public PayeeInfo? payee_info { get; set; }
+    }
+
+    public class trsyPayments
+    {
+        public string Head { get; set; } = "";
+        public string amt { get; set; } = "";
+    }
+
+    public class nonTrsyPaymentsTrp
+    {
+        public string NonTrsy { get; set; } = "";
+        public string ntAmt { get; set; } = "";
+    }
+
+    public class PayeeInfo
+    {
+        public string payerName { get; set; } = "";
+        public string teleNumber { get; set; } = "";
+        public string mobNumber { get; set; } = "";
+        public string emailId { get; set; } = "";
+        public string addLine1 { get; set; } = "";
+        public string addLine2 { get; set; } = "";
+        public string addPincode { get; set; } = "";
+        public string district { get; set; } = "";
+        public string tehsil { get; set; } = "";
+    }
+
+    public class IFMS_EncrDecr
+    {
+        private string ChecksumKey { get; set; }
+        private string Key { get; set; }
+        private string IV { get; set; }
+
+        public IFMS_EncrDecr(string checksumKey, string key, string iv)
+        {
+            ChecksumKey = checksumKey;
+            Key = key;
+            IV = iv;
+        }
+
+        public string CheckSum(string text)
+        {
+            var encoder = new System.Text.UTF8Encoding();
+            var hex = new System.Text.StringBuilder();
+
+            using (var hmac = new System.Security.Cryptography.HMACSHA512(encoder.GetBytes(ChecksumKey)))
+            {
+                byte[] hashValue = hmac.ComputeHash(encoder.GetBytes(text));
+                foreach (byte x in hashValue)
+                {
+                    hex.Append(x.ToString("x2"));
+                }
+            }
+            return hex.ToString().ToLower();
+        }
+
+        public string Encrypt(string textToEncrypt)
+        {
+            int keySize = 128;
+            using (var aes = System.Security.Cryptography.Aes.Create())
+            {
+                aes.Mode = System.Security.Cryptography.CipherMode.CBC;
+                aes.Padding = System.Security.Cryptography.PaddingMode.PKCS7;
+                aes.KeySize = keySize;
+                aes.BlockSize = keySize;
+                aes.Key = System.Text.Encoding.UTF8.GetBytes(Key);
+                aes.IV = System.Text.Encoding.UTF8.GetBytes(IV);
+
+                using (var transform = aes.CreateEncryptor())
+                {
+                    byte[] plainText = System.Text.Encoding.UTF8.GetBytes(textToEncrypt);
+                    byte[] encrypted = transform.TransformFinalBlock(plainText, 0, plainText.Length);
+                    return Convert.ToBase64String(encrypted);
+                }
+            }
+        }
+
+        public string Decrypt(string textToDecrypt)
+        {
+            int keySize = 128;
+            using (var aes = System.Security.Cryptography.Aes.Create())
+            {
+                aes.Mode = System.Security.Cryptography.CipherMode.CBC;
+                aes.Padding = System.Security.Cryptography.PaddingMode.PKCS7;
+                aes.KeySize = keySize;
+                aes.BlockSize = keySize;
+                aes.Key = System.Text.Encoding.UTF8.GetBytes(Key);
+                aes.IV = System.Text.Encoding.UTF8.GetBytes(IV);
+
+                using (var transform = aes.CreateDecryptor())
+                {
+                    byte[] encryptedData = Convert.FromBase64String(textToDecrypt);
+                    byte[] decrypted = transform.TransformFinalBlock(encryptedData, 0, encryptedData.Length);
+                    return System.Text.Encoding.UTF8.GetString(decrypted);
+                }
+            }
+        }
     }
 }
